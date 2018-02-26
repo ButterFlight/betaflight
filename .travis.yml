@@ -39,6 +39,9 @@ language: cpp
 compiler: clang
 dist: trusty
 
+addons:
+  artifacts:
+    s3_region: "us-west-2"
 
 before_install:
   - pip install --user cpp-coveralls
