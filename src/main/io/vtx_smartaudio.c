@@ -498,8 +498,11 @@ typedef struct saCmdQueue_s {
     int len;
 } saCmdQueue_t;
 
-#define SA_QSIZE 6     // 1 heartbeat (GetSettings) + 2 commands + 1 slack
-static saCmdQueue_t sa_queue[SA_QSIZE];
+int sa_qsize = 6 // 1 heartbeat (GetSettings) + 2 commands + 1 slack
+if (vtxSettingsConfig()->akkStyleEndFrame) {
+  sa_qsize = 4;
+}
+static saCmdQueue_t sa_queue[sa_qsize];
 static uint8_t sa_qhead = 0;
 static uint8_t sa_qtail = 0;
 
@@ -509,7 +512,7 @@ static int saQueueLength(void)
     if (sa_qhead >= sa_qtail) {
         return sa_qhead - sa_qtail;
     } else {
-        return SA_QSIZE + sa_qhead - sa_qtail;
+        return sa_qsize + sa_qhead - sa_qtail;
     }
 }
 #endif
@@ -521,7 +524,7 @@ static bool saQueueEmpty(void)
 
 static bool saQueueFull(void)
 {
-    return ((sa_qhead + 1) % SA_QSIZE) == sa_qtail;
+    return ((sa_qhead + 1) % sa_qsize) == sa_qtail;
 }
 
 static void saQueueCmd(uint8_t *buf, int len)
@@ -532,7 +535,7 @@ static void saQueueCmd(uint8_t *buf, int len)
 
     sa_queue[sa_qhead].buf = buf;
     sa_queue[sa_qhead].len = len;
-    sa_qhead = (sa_qhead + 1) % SA_QSIZE;
+    sa_qhead = (sa_qhead + 1) % sa_qsize;
 }
 
 static void saSendQueue(void)
@@ -542,7 +545,7 @@ static void saSendQueue(void)
     }
 
     saSendCmd(sa_queue[sa_qtail].buf, sa_queue[sa_qtail].len);
-    sa_qtail = (sa_qtail + 1) % SA_QSIZE;
+    sa_qtail = (sa_qtail + 1) % sa_qsize;
 }
 
 // Individual commands
@@ -679,7 +682,11 @@ bool vtxSmartAudioInit(void)
 
     serialPortConfig_t *portConfig = findSerialPortConfig(FUNCTION_VTX_SMARTAUDIO);
     if (portConfig) {
+      if (vtxSettingsConfig()->akkStyleEndFrame) {
+        portOptions_e portOptions = SERIAL_STOPBITS_1 | SERIAL_BIDIR_NOPULL;
+      } else {
         portOptions_e portOptions = SERIAL_STOPBITS_2 | SERIAL_BIDIR_NOPULL;
+      }
 #if defined(USE_VTX_COMMON)
         portOptions = portOptions | (vtxConfig()->halfDuplex ? SERIAL_BIDIR | SERIAL_BIDIR_PP : SERIAL_UNIDIR);
 #else
