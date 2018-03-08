@@ -1,6 +1,6 @@
-![Butterflight](http://butterflight.co/img/butterflight-logo.svg)
+![butthurtflight](http://butthurtflight.co/img/butthurtflight-logo.svg)
 
-Butterflight is flight controller software (firmware) used to fly multi-rotor craft and fixed wing craft.
+butthurtflight is flight controller software (firmware) used to fly multi-rotor craft and fixed wing craft.
 
 This fork differs from Baseflight and Cleanflight in that it focuses on flight performance, leading-edge feature additions, and wide target support.
 
@@ -31,17 +31,17 @@ See: https://github.com/betaflight/betaflight/wiki
 
 There's a dedicated Slack chat channel here:
 
-https://communityinviter.com/apps/butterflight/butterflight
+https://communityinviter.com/apps/butthurtflight/butthurtflight
 
 ## Configuration Tool
 
-To configure Butterflight you should use the Betaflight-configurator GUI tool (Windows/OSX/Linux) that can be found here:
+To configure butthurtflight you should use the Betaflight-configurator GUI tool (Windows/OSX/Linux) that can be found here:
 
-http://www.butterflight.co
+http://www.butthurtflight.co
 
 The source for it is here:
 
-https://github.com/butterflight/butterflight-configurator
+https://github.com/butthurtflight/butthurtflight-configurator
 
 ## Contributing
 
@@ -54,8 +54,8 @@ Contributions are welcome and encouraged.  You can contribute in many ways:
 
 The best place to start is the IRC channel on gitter (see above), drop in, say hi. Next place is the github issue tracker:
 
-https://github.com/butterflight/butterflight/issues
-https://github.com/butterflight/butterflight-configurator/issues
+https://github.com/butthurtflight/butthurtflight/issues
+https://github.com/butthurtflight/butthurtflight-configurator/issues
 
 Before creating new issues please check to see if there is an existing one, search first otherwise you waste peoples time when they could be coding instead!
 
@@ -68,10 +68,13 @@ Betaflight is forked from Cleanflight, so thanks goes to all those whom have con
 Origins for this fork (Thanks!):
 * **Alexinparis** (for MultiWii),
 * **timecop** (for Baseflight),
-* **Dominic Clifton** (for Cleanflight), and
-* **Sambas** (for the original STM32F4 port).
+* **Dominic Clifton** (for Cleanflight),
+* **borisb** (for Betaflight),
+* **Sambas** (for the original STM32F4 port),
+* **loose_transistor** (for fucking up betaflight), and
+* **rs2k** (for fucking up the entire fpv community).
 
-The Butterflight Configurator is forked from Betaflight Configurator and its origins.
+The butthurtflight Configurator is forked from Betaflight Configurator and its origins.
 
 Origins for Betaflight Configurator:
 * **Dominic Clifton** (for Cleanflight configurator), and
@@ -91,6 +94,7 @@ Big thanks to current and past contributors:
 * MJ666
 * Nathan (nathantsoi)
 * ravnav
+* rs2k
 * sambas
 * savaga
 * Stålheim, Anton (KiteAnton)
