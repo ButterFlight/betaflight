@@ -39,6 +39,9 @@
 #include "fc/config.h"
 
 #include "sensors/boardalignment.h"
+
+#include "drivers/system.h"
+
 volatile uint32_t isImufCalibrating = 0;
 
 void crcConfig(void)
@@ -149,7 +152,16 @@ int imuf9001Whoami(const gyroDev_t *gyro)
         {
             switch ( (*(imufVersion_t *)&(reply.param1)).firmware )
             {
-                case 101: //version 101 allowed right now
+                case 101:
+                    //force update
+                    if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
+                    {
+                        (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
+                        delay(10);
+                        systemReset();
+                    }
+                break;
+                case 102: //version 102 required right now
                     return IMUF_9001_SPI;
                 break;
                 default:

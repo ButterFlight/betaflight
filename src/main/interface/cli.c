@@ -3793,11 +3793,20 @@ static void cliReportImufErrors(char *cmdline)
 static void cliImufUpdate(char *cmdline)
 {
     UNUSED(cmdline);
-    cliPrint("I muff, you muff, we all muff for IMU-F!");
-    cliPrintLinefeed();
-    (*((uint32_t *)0x2001FFEC)) = 0xF431FA77;
-    delay(1000);
-    cliReboot();
+    
+    if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("I muff, you muff, we all muff for IMU-F!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
 }
 #endif
 
@@ -3806,11 +3815,19 @@ static void cliMsd(char *cmdline)
 {
     UNUSED(cmdline);
 
-    cliPrint("Loading as USB drive!");
-    cliPrintLinefeed();
-    (*((uint32_t *)0x2001FFF0)) = 0xF431FA11;
-    delay(1000);
-    cliReboot();
+    if( (*((__IO uint32_t *)MSD_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("Loading as USB drive!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFF0)) = 0xF431FA11;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
 }
 #endif
 
