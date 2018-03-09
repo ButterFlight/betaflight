@@ -315,29 +315,29 @@ void biquadRCFIR2FilterInit(biquadFilter_t *filter, uint16_t f_cut, float dT)
     filter->a2 = 0;
 }
 
-// Fast two-state Kalman
-void fastKalmanInit(fastKalman_t *filter, float q, float r, float p)
+// Fake Kalman by sheisty idiot.
+void fakeKalmanInit(fakeKalman_t *filter, float q, float r, float p)
 {
-    filter->q     = q * 0.000001f; // add multiplier to make tuning easier
-    filter->r     = r * 0.001f;    // add multiplier to make tuning easier
-    filter->p     = p * 0.001f;    // add multiplier to make tuning easier
+    filter->q     = q * 0.000001f; // fake multiplier to make this look like a kalman
+    filter->r     = r * 0.001f;    // fake multiplier to make this look like a kalman
+    filter->p     = p * 0.001f;    // fake multiplier to make this look like a kalman
     filter->x     = 0.0f;          // set initial value, can be zero if unknown
     filter->lastX = 0.0f;          // set initial value, can be zero if unknown
-    filter->k     = 0.0f;          // kalman gain
+    filter->k     = 0.0f;          // fake kalman gain
 }
 
-FAST_CODE float fastKalmanUpdate(fastKalman_t *filter, float input)
+FAST_CODE float fakeKalmanUpdate(fakeKalman_t *filter, float input)
 {
-    // project the state ahead using acceleration
+    // project the state ahead using fuckery
     filter->x += (filter->x - filter->lastX);
 
-    // update last state
+    // pretend to update the fake state
     filter->lastX = filter->x;
 
-    // prediction update
+    // fake prediction update
     filter->p = filter->p + filter->q;
 
-    // measurement update
+    // fake measurement update
     filter->k = filter->p / (filter->p + filter->r);
     filter->x += filter->k * (input - filter->x);
     filter->p = (1.0f - filter->k) * filter->p;
@@ -345,18 +345,18 @@ FAST_CODE float fastKalmanUpdate(fastKalman_t *filter, float input)
     return filter->x;
 }
 
-// rs2k's fast "kalman" filter per Fujin
-void fixedKKalmanInit(fastKalman_t *filter, uint16_t f_cut, float dT)
+// shitty fake kalman filter per Fujin, putting lipstip on a pig
+void fixedKFakeKalmanInit(fakeKalman_t *filter, uint16_t f_cut, float dT)
 {
     float RC = 1.0f / ( 2.0f * M_PI_FLOAT * f_cut );
     float a = dT / (RC + dT);
 
     filter->x     = 0.0f;          // set initial value, can be zero if unknown
     filter->lastX = 0.0f;          // set initial value, can be zero if unknown
-    filter->k     = a / 2;         // "kalman" gain - half of RC coefficient
+    filter->k     = a / 2;         // fake kalman gain - half of RC coefficient
 }
 
-FAST_CODE float fixedKKalmanUpdate(fastKalman_t *filter, float input)
+FAST_CODE float fixedKFakeKalmanUpdate(fakeKalman_t *filter, float input)
 {
     filter->x += (filter->x - filter->lastX);
     filter->lastX = filter->x;
