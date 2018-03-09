@@ -29,6 +29,6 @@
 void targetConfiguration(void)
 {
     sdcardConfigMutable()->useDma = true;
-    telemetryConfigMutable()->halfDuplex = 0;
+    telemetryConfigMutable()->halfDuplex = 1;
 }
 #endif
