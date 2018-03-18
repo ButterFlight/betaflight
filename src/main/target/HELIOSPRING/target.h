@@ -187,7 +187,7 @@
 #define VBAT_SCALE                     109
 
 #define CAMERA_CONTROL_PIN             PB6    // define dedicated camera_osd_control pin
-
+#define RSSI_ADC_PIN                   PA5
 
 #if defined(HELIO_RACE)
 #define HELIO_PROFILE_PITCH_Q 800
