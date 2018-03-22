@@ -39,7 +39,8 @@
     #define LED1_PIN                        PB2
 #endif
 
-#define BEEPER                              PC15
+#define USE_BEEPER
+#define BEEPER_PIN                          PC15
 #define BEEPER_INVERTED
 
 #if (SPRACINGF4NEO_REV >= 2)
@@ -73,6 +74,7 @@
 #define USE_MAG
 #define USE_MAG_AK8975
 #define USE_MAG_HMC5883
+#define USE_MAG_QMC5883
 
 #define USE_VCP
 #define USE_UART1

@@ -26,7 +26,8 @@
 #define LED0_PIN                PC14
 #define LED1_PIN                PC13
 
-#define BEEPER                  PC13
+#define USE_BEEPER
+#define BEEPER_PIN              PC13
 
 #define MPU6500_CS_PIN          PB12
 #define MPU6500_SPI_INSTANCE    SPI2
@@ -55,6 +56,7 @@
 #define USE_UART1 // Flexi Port
 #define UART1_RX_PIN            PB7
 #define UART1_TX_PIN            PB6
+#define PINIO1_PIN              PB10 // DTR pin
 
 #define USE_UART2 // Main Port
 #define UART2_RX_PIN            PA3

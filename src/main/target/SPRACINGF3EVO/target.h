@@ -51,7 +51,8 @@
 
 #define LED0_PIN                PB8
 
-#define BEEPER                  PC15
+#define USE_BEEPER
+#define BEEPER_PIN              PC15
 #define BEEPER_INVERTED
 
 #define USE_EXTI
@@ -164,7 +165,7 @@
 #define CURRENT_METER_ADC_PIN   PA5
 #endif
 
-#define DISABLE_EXTENDED_CMS_OSD_MENU
+#undef USE_EXTENDED_CMS_MENUS
 #define USE_OSD_OVER_MSP_DISPLAYPORT
 #define USE_MSP_CURRENT_METER
 

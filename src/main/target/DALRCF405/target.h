@@ -20,13 +20,11 @@
 #define USBD_PRODUCT_STRING  "DALRCF405"
 //----------------------------------------
 
-//#define USE_TARGET_CONFIG
-#define USE_DSHOT_DMAR
-
 //LED & BEE------------------------------- 
 #define LED0_PIN                PC14
 
-#define BEEPER                  PC13
+#define USE_BEEPER
+#define BEEPER_PIN              PC13
 #define BEEPER_INVERTED
 
 //define camera control
@@ -139,6 +137,8 @@
  
 #define DEFAULT_VOLTAGE_METER_SOURCE    VOLTAGE_METER_ADC
 #define DEFAULT_CURRENT_METER_SOURCE    CURRENT_METER_ADC
+
+#define ENABLE_DSHOT_DMAR       true
 
 #define USE_ESCSERIAL
 #define ESCSERIAL_TIMER_TX_PIN PA3

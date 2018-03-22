@@ -30,7 +30,8 @@
 #define LED1_PIN                PB4
 #define LED2_PIN                PB6
 
-#define BEEPER                  PC9
+#define USE_BEEPER
+#define BEEPER_PIN              PC9
 #define BEEPER_INVERTED
 #define INVERTER_PIN_UART3      PB15
 
@@ -63,6 +64,7 @@
 
 #define USE_MAG
 #define USE_MAG_HMC5883                   //External, connect to I2C1
+#define USE_MAG_QMC5883
 #define MAG_HMC5883_ALIGN       CW180_DEG
 
 #define USE_BARO
@@ -135,14 +137,10 @@
 
 #define DEFAULT_VOLTAGE_METER_SOURCE VOLTAGE_METER_ADC
 #define USE_ADC
+#define ADC1_DMA_STREAM 			DMA2_Stream0
 #define VBAT_ADC_PIN                PC3
-#define VBAT_ADC_CHANNEL            ADC_Channel_13
-
 #define CURRENT_METER_ADC_PIN       PC2
-#define CURRENT_METER_ADC_CHANNEL   ADC_Channel_12
-
 #define RSSI_ADC_PIN                PC1
-#define RSSI_ADC_CHANNEL            ADC_Channel_11
 
 #define DEFAULT_FEATURES        ( FEATURE_TELEMETRY | FEATURE_OSD )
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL

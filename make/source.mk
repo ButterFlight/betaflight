@@ -11,9 +11,11 @@ COMMON_SRC = \
             common/huffman.c \
             common/huffman_table.c \
             common/maths.c \
+            common/explog_approx.c \
             common/printf.c \
             common/streambuf.c \
             common/string_light.c \
+            common/strtol.c \
             common/time.c \
             common/typeconversion.c \
             config/config_eeprom.c \
@@ -283,6 +285,7 @@ SIZE_OPTIMISED_SRC := $(SIZE_OPTIMISED_SRC) \
             drivers/compass/compass_ak8975.c \
             drivers/compass/compass_fake.c \
             drivers/compass/compass_hmc5883l.c \
+            drivers/compass/compass_qmc5883l.c \
             drivers/display_ug2864hsweg01.c \
             drivers/inverter.c \
             drivers/light_ws2811strip.c \
@@ -384,6 +387,10 @@ endif
 
 ifneq ($(filter VCP,$(FEATURES)),)
 SRC += $(VCP_SRC)
+endif
+
+ifneq ($(filter MSC,$(FEATURES)),)
+SRC += $(MSC_SRC)
 endif
 # end target specific make file checks
 

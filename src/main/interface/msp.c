@@ -412,6 +412,7 @@ static bool mspCommonProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProce
         break;
 
     case MSP_BOARD_INFO:
+    {
         sbufWriteData(dst, systemConfig()->boardIdentifier, BOARD_IDENTIFIER_LENGTH);
 #ifdef USE_HARDWARE_REVISION_DETECTION
         sbufWriteU16(dst, hardwareRevision);
@@ -427,7 +428,23 @@ static bool mspCommonProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProce
         sbufWriteU8(dst, 0);  // 0 == FC
 #endif
 #endif
+        // Board communication capabilities (uint8)
+        // Bit 0: 1 iff the board has VCP
+        // Bit 1: 1 iff the board supports software serial
+        uint8_t commCapabilities = 0;
+#ifdef USE_VCP
+        commCapabilities |= 1 << 0;
+#endif
+#if defined(USE_SOFTSERIAL1) || defined(USE_SOFTSERIAL2)
+        commCapabilities |= 1 << 1;
+#endif
+        sbufWriteU8(dst, commCapabilities);
+
+        // Target name with explicit length
+        sbufWriteU8(dst, strlen(targetName));
+        sbufWriteData(dst, targetName, strlen(targetName));
         break;
+    }
 
     case MSP_BUILD_INFO:
         sbufWriteData(dst, buildDate, BUILD_DATE_LENGTH);
@@ -471,7 +488,7 @@ static bool mspCommonProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst, mspPostProce
         sbufWriteU32(dst, featureMask());
         break;
 
-#ifdef BEEPER
+#ifdef USE_BEEPER
     case MSP_BEEPER_CONFIG:
         sbufWriteU32(dst, getBeeperOffMask());
         sbufWriteU8(dst, beeperConfig()->dshotBeaconTone);
@@ -781,13 +798,13 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
             }
 
             for (int i = 0; i < 3; i++) {
-                sbufWriteU16(dst, acc.accADC[i] / scale);
+                sbufWriteU16(dst, lrintf(acc.accADC[i] / scale));
             }
             for (int i = 0; i < 3; i++) {
                 sbufWriteU16(dst, gyroRateDps(i));
             }
             for (int i = 0; i < 3; i++) {
-                sbufWriteU16(dst, mag.magADC[i]);
+                sbufWriteU16(dst, lrintf(mag.magADC[i]));
             }
         }
         break;
@@ -1168,9 +1185,9 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         break;
 
     case MSP_FILTER_CONFIG :
-        sbufWriteU8(dst, gyroConfig()->gyro_soft_lpf_hz);
-        sbufWriteU16(dst, currentPidProfile->dterm_lpf_hz);
-        sbufWriteU16(dst, currentPidProfile->yaw_lpf_hz);
+        sbufWriteU8(dst, gyroConfig()->gyro_lowpass_hz);
+        sbufWriteU16(dst, currentPidProfile->dterm_lowpass_hz);
+        sbufWriteU16(dst, currentPidProfile->yaw_lowpass_hz);
         sbufWriteU16(dst, gyroConfig()->gyro_soft_notch_hz_1);
         sbufWriteU16(dst, gyroConfig()->gyro_soft_notch_cutoff_1);
         sbufWriteU16(dst, currentPidProfile->dterm_notch_hz);
@@ -1179,9 +1196,9 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         sbufWriteU16(dst, gyroConfig()->gyro_soft_notch_cutoff_2);
         sbufWriteU8(dst, currentPidProfile->dterm_filter_type);
         break;
-#ifdef USE_GYRO_FAST_KALMAN
+#ifndef USE_GYRO_IMUF9001
     case MSP_ADVANCED_FILTER_CONFIG :
-        sbufWriteU16(dst, gyroConfig()->gyro_soft_lpf_hz_2);
+        sbufWriteU16(dst, gyroConfig()->gyro_lowpass2_hz);
         sbufWriteU16(dst, gyroConfig()->gyro_filter_q);
         sbufWriteU16(dst, gyroConfig()->gyro_filter_r);
         sbufWriteU16(dst, gyroConfig()->gyro_filter_p);
@@ -1345,7 +1362,21 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
 {
     UNUSED(cmdMSP);
     UNUSED(src);
-    return MSP_RESULT_ERROR;
+
+    switch(cmdMSP) {
+    case MSP_RESET_CONF:
+        resetEEPROM();
+        readEEPROM();
+        break;
+    case MSP_EEPROM_WRITE:
+        writeEEPROM();
+        readEEPROM();
+        break;
+    default:
+        // we do not know how to handle the (valid) message, indicate error MSP $M!
+        return MSP_RESULT_ERROR;
+    }
+    return MSP_RESULT_ACK;
 }
 
 #else
@@ -1634,9 +1665,9 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         break;
 
     case MSP_SET_FILTER_CONFIG:
-        gyroConfigMutable()->gyro_soft_lpf_hz = sbufReadU8(src);
-        currentPidProfile->dterm_lpf_hz = sbufReadU16(src);
-        currentPidProfile->yaw_lpf_hz = sbufReadU16(src);
+        gyroConfigMutable()->gyro_lowpass_hz = sbufReadU8(src);
+        currentPidProfile->dterm_lowpass_hz = sbufReadU16(src);
+        currentPidProfile->yaw_lowpass_hz = sbufReadU16(src);
         if (sbufBytesRemaining(src) >= 8) {
             gyroConfigMutable()->gyro_soft_notch_hz_1 = sbufReadU16(src);
             gyroConfigMutable()->gyro_soft_notch_cutoff_1 = sbufReadU16(src);
@@ -1656,9 +1687,9 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         // reinitialize the PID filters with the new values
         pidInitFilters(currentPidProfile);
         break;
-#ifdef USE_GYRO_FAST_KALMAN
+#ifndef USE_GYRO_IMUF9001
     case MSP_SET_ADVANCED_FILTER_CONFIG :
-        gyroConfigMutable()->gyro_soft_lpf_hz_2 = sbufReadU16(src);
+        gyroConfigMutable()->gyro_lowpass2_hz = sbufReadU16(src);
         gyroConfigMutable()->gyro_filter_q = sbufReadU16(src);
         gyroConfigMutable()->gyro_filter_r = sbufReadU16(src);
         gyroConfigMutable()->gyro_filter_p = sbufReadU16(src);
@@ -1788,10 +1819,14 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
     case MSP_SET_ARMING_DISABLED:
         {
             const uint8_t command = sbufReadU8(src);
- //           uint8_t disableRunawayTakeoff = 0;
- //           if (sbufBytesRemaining(src)) {
- //               disableRunawayTakeoff = sbufReadU8(src);
- //           }
+
+            uint8_t disableRunawayTakeoff = 0;
+#ifndef USE_RUNAWAY_TAKEOFF
+            UNUSED(disableRunawayTakeoff);
+#endif
+            if (sbufBytesRemaining(src)) {
+                disableRunawayTakeoff = sbufReadU8(src);
+            }
             if (command) {
                 setArmingDisabled(ARMING_DISABLED_MSP);
                 if (ARMING_FLAG(ARMED)) {
@@ -1862,7 +1897,7 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         featureSet(sbufReadU32(src)); // features bitmap
         break;
 
-#ifdef BEEPER
+#ifdef USE_BEEPER
     case MSP_SET_BEEPER_CONFIG:
         beeperOffClearAll();
         setBeeperOffMask(sbufReadU32(src));

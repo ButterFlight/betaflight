@@ -7,7 +7,7 @@ CFLAGS               += -DDEBUG_HARDFAULTS
 endif
 
 #CMSIS
-CMSIS_DIR      := $(ROOT)/lib/main/STM32F7/Drivers/CMSIS
+CMSIS_DIR      := $(ROOT)/lib/main/CMSIS
 
 #STDPERIPH
 STDPERIPH_DIR   = $(ROOT)/lib/main/STM32F7/Drivers/STM32F7xx_HAL_Driver
@@ -18,8 +18,6 @@ EXCLUDES        = stm32f7xx_hal_can.c \
                   stm32f7xx_hal_crc_ex.c \
                   stm32f7xx_hal_cryp.c \
                   stm32f7xx_hal_cryp_ex.c \
-                  stm32f7xx_hal_dac.c \
-                  stm32f7xx_hal_dac_ex.c \
                   stm32f7xx_hal_dcmi.c \
                   stm32f7xx_hal_dcmi_ex.c \
                   stm32f7xx_hal_dfsdm.c \
@@ -98,8 +96,8 @@ INCLUDE_DIRS    := $(INCLUDE_DIRS) \
                    $(STDPERIPH_DIR)/Inc \
                    $(USBCORE_DIR)/Inc \
                    $(USBCDC_DIR)/Inc \
-                   $(CMSIS_DIR)/Include \
-                   $(CMSIS_DIR)/Device/ST/STM32F7xx/Include \
+                   $(CMSIS_DIR)/Core/Include \
+                   $(ROOT)/lib/main/STM32F7/Drivers/CMSIS/Device/ST/STM32F7xx/Include \
                    $(ROOT)/src/main/vcp_hal
 
 ifneq ($(filter SDCARD,$(FEATURES)),)
@@ -163,5 +161,5 @@ MCU_EXCLUDES = \
             drivers/timer.c \
             drivers/serial_uart.c
 
-DSP_LIB := $(ROOT)/lib/main/DSP_Lib
+DSP_LIB := $(ROOT)/lib/main/CMSIS/DSP
 DEVICE_FLAGS += -DARM_MATH_MATRIX_CHECK -DARM_MATH_ROUNDING -D__FPU_PRESENT=1 -DUNALIGNED_SUPPORT_DISABLE -DARM_MATH_CM7

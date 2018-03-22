@@ -118,8 +118,8 @@ typedef struct {
 #endif
     uint16_t dmaBurstLength;
 #endif
-#endif
     uint32_t dmaBurstBuffer[DSHOT_DMA_BUFFER_SIZE * 4];
+#endif
     uint16_t timerDmaSources;
 } motorDmaTimer_t;
 
@@ -206,7 +206,7 @@ void pwmDshotMotorHardwareConfig(const timerHardware_t *timerHardware, uint8_t m
 void pwmCompleteDshotMotorUpdate(uint8_t motorCount);
 #endif
 
-#ifdef BEEPER
+#ifdef USE_BEEPER
 void pwmWriteBeeper(bool onoffBeep);
 void pwmToggleBeeper(void);
 void beeperPwmInit(const ioTag_t tag, uint16_t frequency);

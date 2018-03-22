@@ -22,7 +22,8 @@
 #define LED0_PIN                PB3
 #define LED1_PIN                PB4
 
-#define BEEPER                  PA12
+#define USE_BEEPER
+#define BEEPER_PIN              PA12
 
 #define BARO_XCLR_PIN           PC13
 #define BARO_EOC_PIN            PC14
@@ -60,6 +61,7 @@
 
 #define USE_MAG
 #define USE_MAG_HMC5883
+#define USE_MAG_QMC5883
 #define MAG_HMC5883_ALIGN       CW180_DEG
 
 #define USE_UART1

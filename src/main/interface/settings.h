@@ -59,6 +59,7 @@ typedef enum {
     TABLE_RC_INTERPOLATION_CHANNELS,
     TABLE_LOWPASS_TYPE,
     TABLE_KD_STYLE,
+    TABLE_DTERM_LOWPASS_TYPE,
     TABLE_FAILSAFE,
     TABLE_CRASH_RECOVERY,
 #ifdef USE_CAMERA_CONTROL
@@ -78,11 +79,13 @@ typedef enum {
 #ifdef USE_OVERCLOCK
     TABLE_OVERCLOCK,
 #endif
-#ifdef USE_GYRO_BIQUAD_RC_FIR2
-#ifdef USE_GYRO_FAST_KALMAN
     TABLE_STAGE2_FILTER_TYPE,
+#ifdef USE_LED_STRIP
+    TABLE_RGB_GRB,
 #endif
-#endif // lookup only available if both are enabled
+#ifdef USE_DUAL_GYRO
+    TABLE_GYRO,
+#endif
     LOOKUP_TABLE_COUNT
 } lookupTableIndex_e;
 

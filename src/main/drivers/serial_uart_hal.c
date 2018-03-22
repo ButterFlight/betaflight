@@ -94,6 +94,10 @@ void uartReconfigure(uartPort_t *uartPort)
 
     usartConfigurePinInversion(uartPort);
 
+#ifdef TARGET_USART_CONFIG
+    usartTargetConfigure(uartPort);
+#endif
+
     if (uartPort->port.options & SERIAL_BIDIR)
     {
         HAL_HalfDuplex_Init(&uartPort->Handle);
@@ -357,6 +361,8 @@ const struct serialPortVTable uartVTable[] = {
         .serialSetBaudRate = uartSetBaudRate,
         .isSerialTransmitBufferEmpty = isUartTransmitBufferEmpty,
         .setMode = uartSetMode,
+        .setCtrlLineStateCb = NULL,
+        .setBaudRateCb = NULL,
         .writeBuf = NULL,
         .beginWrite = NULL,
         .endWrite = NULL,

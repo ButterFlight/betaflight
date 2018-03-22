@@ -134,6 +134,7 @@ timeUs_t resumeRefreshAt = 0;
 #define REFRESH_1S    1000 * 1000
 
 static uint8_t armState;
+static bool lastArmState;
 
 static displayPort_t *osdDisplayPort;
 
@@ -319,7 +320,7 @@ STATIC_UNIT_TESTED void osdFormatTime(char * buff, osd_timer_precision_e precisi
     }
 }
 
-STATIC_UNIT_TESTED void osdFormatTimer(char *buff, bool showSymbol, int timerIndex)
+STATIC_UNIT_TESTED void osdFormatTimer(char *buff, bool showSymbol, bool usePrecision, int timerIndex)
 {
     const uint16_t timer = osdConfig()->timers[timerIndex];
     const uint8_t src = OSD_TIMER_SRC(timer);
@@ -328,7 +329,7 @@ STATIC_UNIT_TESTED void osdFormatTimer(char *buff, bool showSymbol, int timerInd
         *(buff++) = osdGetTimerSymbol(src);
     }
 
-    osdFormatTime(buff, OSD_TIMER_PRECISION(timer), osdGetTimerValue(src));
+    osdFormatTime(buff, (usePrecision ? OSD_TIMER_PRECISION(timer) : OSD_TIMER_PREC_SECOND), osdGetTimerValue(src));
 }
 
 #ifdef USE_GPS
@@ -387,8 +388,7 @@ static bool osdDrawSingleElement(uint8_t item)
 
     uint8_t elemPosX = OSD_X(osdConfig()->item_pos[item]);
     uint8_t elemPosY = OSD_Y(osdConfig()->item_pos[item]);
-    uint8_t elemOffsetX = 0;
-    char buff[OSD_ELEMENT_BUFFER_LENGTH];
+    char buff[OSD_ELEMENT_BUFFER_LENGTH] = "";
 
     switch (item) {
     case OSD_RSSI_VALUE:
@@ -480,7 +480,7 @@ static bool osdDrawSingleElement(uint8_t item)
 
     case OSD_ITEM_TIMER_1:
     case OSD_ITEM_TIMER_2:
-        osdFormatTimer(buff, true, item - OSD_ITEM_TIMER_1);
+        osdFormatTimer(buff, true, true, item - OSD_ITEM_TIMER_1);
         break;
 
     case OSD_REMAINING_TIME_ESTIMATE:
@@ -500,22 +500,19 @@ static bool osdDrawSingleElement(uint8_t item)
 
     case OSD_FLYMODE:
         {
-            char *p = "ACRO";
-
-            if (isAirmodeActive()) {
-                p = "AIR ";
-            }
-
             if (FLIGHT_MODE(FAILSAFE_MODE)) {
-                p = "!FS!";
+                strcpy(buff, "!FS!");
             } else if (FLIGHT_MODE(ANGLE_MODE)) {
-                p = "STAB";
+                strcpy(buff, "STAB");
             } else if (FLIGHT_MODE(HORIZON_MODE)) {
-                p = "HOR ";
+                strcpy(buff, "HOR ");
+            } else if (isAirmodeActive()) {
+                strcpy(buff, "AIR ");
+            } else {
+                strcpy(buff, "ACRO");
             }
 
-            displayWrite(osdDisplayPort, elemPosX, elemPosY, p);
-            return true;
+            break;
         }
 
     case OSD_CRAFT_NAME:
@@ -554,17 +551,12 @@ static bool osdDrawSingleElement(uint8_t item)
             if (vtxDevice && vtxSettingsConfig()->lowPowerDisarm) {
                 vtxCommonGetPowerIndex(vtxDevice, &vtxPower);
             }
-            tfp_sprintf(buff, "%c:%s:%2d", vtxBandLetter, vtxChannelName, vtxPower);
+            tfp_sprintf(buff, "%c:%s:%1d", vtxBandLetter, vtxChannelName, vtxPower);
             break;
         }
 #endif
 
     case OSD_CROSSHAIRS:
-        elemPosX = 14 - 1; // Offset for 1 char to the left
-        elemPosY = 6;
-        if (displayScreenSize(osdDisplayPort) == VIDEO_BUFFER_CHARS_PAL) {
-            ++elemPosY;
-        }
         buff[0] = SYM_AH_CENTER_LINE;
         buff[1] = SYM_AH_CENTER;
         buff[2] = SYM_AH_CENTER_LINE_RIGHT;
@@ -573,12 +565,6 @@ static bool osdDrawSingleElement(uint8_t item)
 
     case OSD_ARTIFICIAL_HORIZON:
         {
-            elemPosX = 14;
-            elemPosY = 6 - 4; // Top center of the AH area
-            if (displayScreenSize(osdDisplayPort) == VIDEO_BUFFER_CHARS_PAL) {
-                ++elemPosY;
-            }
-
             // Get pitch and roll limits in tenths of degrees
             const int maxPitch = osdConfig()->ahMaxPitch * 10;
             const int maxRoll = osdConfig()->ahMaxRoll * 10;
@@ -595,19 +581,11 @@ static bool osdDrawSingleElement(uint8_t item)
                 }
             }
 
-            osdDrawSingleElement(OSD_HORIZON_SIDEBARS);
-
             return true;
         }
 
     case OSD_HORIZON_SIDEBARS:
         {
-            elemPosX = 14;
-            elemPosY = 6;
-            if (displayScreenSize(osdDisplayPort) == VIDEO_BUFFER_CHARS_PAL) {
-                ++elemPosY;
-            }
-
             // Draw AH sides
             const int8_t hudwidth = AH_SIDEBAR_WIDTH_POS;
             const int8_t hudheight = AH_SIDEBAR_HEIGHT_POS;
@@ -728,7 +706,7 @@ static bool osdDrawSingleElement(uint8_t item)
             const float value = constrain(batteryConfig()->batteryCapacity - getMAhDrawn(), 0, batteryConfig()->batteryCapacity);
 
             // Calculate mAh used progress
-            const uint8_t mAhUsedProgress = ceil((value / (batteryConfig()->batteryCapacity / MAIN_BATT_USAGE_STEPS)));
+            const uint8_t mAhUsedProgress = ceilf((value / (batteryConfig()->batteryCapacity / MAIN_BATT_USAGE_STEPS)));
 
             // Create empty battery indicator bar
             buff[0] = SYM_PB_START;
@@ -747,7 +725,9 @@ static bool osdDrawSingleElement(uint8_t item)
         if (!ARMING_FLAG(ARMED)) {
             tfp_sprintf(buff, "DISARMED");
         } else {
-            tfp_sprintf(buff, "        ");
+            if (!lastArmState) {  // previously disarmed - blank out the message one time
+                tfp_sprintf(buff, "        ");
+            }
         }
         break;
 
@@ -798,7 +778,7 @@ static bool osdDrawSingleElement(uint8_t item)
         return false;
     }
 
-    displayWrite(osdDisplayPort, elemPosX + elemOffsetX, elemPosY, buff);
+    displayWrite(osdDisplayPort, elemPosX, elemPosY, buff);
 
     return true;
 }
@@ -819,6 +799,7 @@ static void osdDrawElements(void)
     osdDrawSingleElement(OSD_MAIN_BATT_VOLTAGE);
     osdDrawSingleElement(OSD_RSSI_VALUE);
     osdDrawSingleElement(OSD_CROSSHAIRS);
+    osdDrawSingleElement(OSD_HORIZON_SIDEBARS);
     osdDrawSingleElement(OSD_ITEM_TIMER_1);
     osdDrawSingleElement(OSD_ITEM_TIMER_2);
     osdDrawSingleElement(OSD_REMAINING_TIME_ESTIMATE);
@@ -885,6 +866,11 @@ void pgResetFn_osdConfig(osdConfig_t *osdConfig)
 
     // Always enable warnings elements by default
     osdConfig->item_pos[OSD_WARNINGS] = OSD_POS(9, 10) | VISIBLE_FLAG;
+
+    // Default to old fixed positions for these elements
+    osdConfig->item_pos[OSD_CROSSHAIRS]         = OSD_POS(13, 6);
+    osdConfig->item_pos[OSD_ARTIFICIAL_HORIZON] = OSD_POS(14, 2);
+    osdConfig->item_pos[OSD_HORIZON_SIDEBARS]   = OSD_POS(14, 6);
 
     osdConfig->enabled_stats[OSD_STAT_MAX_SPEED]       = true;
     osdConfig->enabled_stats[OSD_STAT_MIN_BATTERY]     = true;
@@ -1151,7 +1137,7 @@ static bool isSomeStatEnabled(void)
     return false;
 }
 
-static void osdShowStats(void)
+static void osdShowStats(uint16_t endBatteryVoltage)
 {
     uint8_t top = 2;
     char buff[OSD_ELEMENT_BUFFER_LENGTH];
@@ -1172,12 +1158,12 @@ static void osdShowStats(void)
     }
 
     if (osdConfig()->enabled_stats[OSD_STAT_TIMER_1]) {
-        osdFormatTimer(buff, false, OSD_TIMER_1);
+        osdFormatTimer(buff, false, (OSD_TIMER_SRC(osdConfig()->timers[OSD_TIMER_1]) == OSD_TIMER_SRC_ON ? false : true), OSD_TIMER_1);
         osdDisplayStatisticLabel(top++, osdTimerSourceNames[OSD_TIMER_SRC(osdConfig()->timers[OSD_TIMER_1])], buff);
     }
 
     if (osdConfig()->enabled_stats[OSD_STAT_TIMER_2]) {
-        osdFormatTimer(buff, false, OSD_TIMER_2);
+        osdFormatTimer(buff, false, (OSD_TIMER_SRC(osdConfig()->timers[OSD_TIMER_2]) == OSD_TIMER_SRC_ON ? false : true), OSD_TIMER_2);
         osdDisplayStatisticLabel(top++, osdTimerSourceNames[OSD_TIMER_SRC(osdConfig()->timers[OSD_TIMER_2])], buff);
     }
 
@@ -1197,7 +1183,7 @@ static void osdShowStats(void)
     }
 
     if (osdConfig()->enabled_stats[OSD_STAT_END_BATTERY]) {
-        tfp_sprintf(buff, "%d.%1d%c", getBatteryVoltage() / 10, getBatteryVoltage() % 10, SYM_VOLT);
+        tfp_sprintf(buff, "%d.%1d%c", endBatteryVoltage / 10, endBatteryVoltage % 10, SYM_VOLT);
         osdDisplayStatisticLabel(top++, "END BATTERY", buff);
     }
 
@@ -1237,8 +1223,6 @@ static void osdShowStats(void)
     }
 #endif
 
-    // Reset time since last armed here to ensure this timer is at zero when back at "main" OSD screen
-    stats.armed_time = 0;
 }
 
 static void osdShowArmed(void)
@@ -1250,27 +1234,50 @@ static void osdShowArmed(void)
 STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
 {
     static timeUs_t lastTimeUs = 0;
+    static bool osdStatsEnabled = false;
+    static bool osdStatsVisible = false;
+    static timeUs_t osdStatsRefreshTimeUs;
+    static uint16_t endBatteryVoltage;
 
     // detect arm/disarm
     if (armState != ARMING_FLAG(ARMED)) {
         if (ARMING_FLAG(ARMED)) {
+            osdStatsEnabled = false;
+            osdStatsVisible = false;
             osdResetStats();
             osdShowArmed();
             resumeRefreshAt = currentTimeUs + (REFRESH_1S / 2);
-        } else if (isSomeStatEnabled()) {
-            osdShowStats();
+        } else if (isSomeStatEnabled()
+                   && (!(getArmingDisableFlags() & ARMING_DISABLED_RUNAWAY_TAKEOFF)
+                       || !VISIBLE(osdConfig()->item_pos[OSD_WARNINGS]))) { // suppress stats if runaway takeoff triggered disarm and WARNINGS element is visible
+            osdStatsEnabled = true;
             resumeRefreshAt = currentTimeUs + (60 * REFRESH_1S);
+            endBatteryVoltage = getBatteryVoltage();
         }
 
         armState = ARMING_FLAG(ARMED);
     }
 
-    osdUpdateStats();
 
     if (ARMING_FLAG(ARMED)) {
+        osdUpdateStats();
         timeUs_t deltaT = currentTimeUs - lastTimeUs;
         flyTime += deltaT;
         stats.armed_time += deltaT;
+    } else if (osdStatsEnabled) {  // handle showing/hiding stats based on OSD disable switch position
+        if (IS_RC_MODE_ACTIVE(BOXOSD) && osdStatsVisible) {
+            osdStatsVisible = false;
+            displayClearScreen(osdDisplayPort);
+        } else if (!IS_RC_MODE_ACTIVE(BOXOSD)) {
+            if (!osdStatsVisible) {
+                osdStatsVisible = true;
+                osdStatsRefreshTimeUs = 0;
+            }
+            if (currentTimeUs >= osdStatsRefreshTimeUs) {
+                osdStatsRefreshTimeUs = currentTimeUs + REFRESH_1S;
+                osdShowStats(endBatteryVoltage);
+            }
+        }
     }
     lastTimeUs = currentTimeUs;
 
@@ -1278,14 +1285,15 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
         if (cmp32(currentTimeUs, resumeRefreshAt) < 0) {
             // in timeout period, check sticks for activity to resume display.
             if (IS_HI(THROTTLE) || IS_HI(PITCH)) {
-                resumeRefreshAt = 0;
+                resumeRefreshAt = currentTimeUs;
             }
-
             displayHeartbeat(osdDisplayPort);
             return;
         } else {
             displayClearScreen(osdDisplayPort);
             resumeRefreshAt = 0;
+            osdStatsEnabled = false;
+            stats.armed_time = 0;
         }
     }
 
@@ -1308,6 +1316,7 @@ STATIC_UNIT_TESTED void osdRefresh(timeUs_t currentTimeUs)
 #endif
     }
 #endif
+    lastArmState = ARMING_FLAG(ARMED);
 }
 
 /*

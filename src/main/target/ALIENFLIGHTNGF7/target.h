@@ -28,7 +28,8 @@
 #define LED0_PIN                PC12
 #define LED1_PIN                PD2
 
-#define BEEPER                  PC13
+#define USE_BEEPER
+#define BEEPER_PIN              PC13
 #define BEEPER_INVERTED
 
 // MPU interrupt
@@ -52,6 +53,7 @@
 #define USE_MAG
 #define USE_MAG_HMC5883
 #define USE_MAG_SPI_HMC5883
+#define USE_MAG_QMC5883
 #define USE_MAG_AK8963
 #define USE_MAG_SPI_AK8963
 
