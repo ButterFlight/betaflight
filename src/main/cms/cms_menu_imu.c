@@ -362,6 +362,7 @@ static CMS_Menu cmsx_menuFilterGlobal = {
 // SPRING Imuf
 //
 
+#ifdef USE_GYRO_IMUF9001
 static uint16_t gyroConfig_imuf_mode;
 static uint16_t gyroConfig_imuf_pitch_q;
 static uint16_t gyroConfig_imuf_pitch_r;
@@ -373,6 +374,7 @@ static uint16_t gyroConfig_imuf_pitch_lpf_cutoff_hz;
 static uint16_t gyroConfig_imuf_roll_lpf_cutoff_hz;
 static uint16_t gyroConfig_imuf_yaw_lpf_cutoff_hz;
 static uint16_t gyroConfig_imuf_dyn_gain;
+#endif
 
 static long cmsx_menuImuf_onEnter(void)
 {
