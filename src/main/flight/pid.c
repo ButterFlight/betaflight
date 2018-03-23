@@ -511,14 +511,14 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
         if (axis != FD_YAW) {
             // apply filters
             float gyroRateFiltered = dtermNotchFilterApplyFn(dtermFilterNotch[axis], gyroRate);
-            if (pidProfile->dterm_filter_style == KD_FILTER_CLASSIC)
+            if (pidProfile->dterm_filter_style == CLASSIC)
             {
                 gyroRateFiltered = dtermLpfApplyFn(dtermFilterLpf[axis], gyroRateFiltered);
             }
 
             const float rD = dynCd * MIN(getRcDeflectionAbs(axis) * relaxFactor, 1.0f) * currentPidSetpoint - gyroRateFiltered;    // cr - y
             const float pureRD = dynCd * MIN(getRcDeflectionAbs(axis) * relaxFactor, 1.0f) * getSetpointRate(axis) - gyroRateFiltered;    // cr - y
-            
+
             float delta = 0.0f;
             float iDT = 1.0f/deltaT; //divide once
 

@@ -45,6 +45,35 @@ void targetConfiguration(void) {
     for (uint8_t pidProfileIndex = 0; pidProfileIndex < MAX_PROFILE_COUNT; pidProfileIndex++) {
         pidProfile_t *pidProfile = pidProfilesMutable(pidProfileIndex);
 
+<<<<<<< HEAD
+    #if  defined(HELIO_RACE)
+        //optimizng for strech-x
+        pidProfile->pid[PID_PITCH].P = 30;
+        pidProfile->pid[PID_PITCH].I = 60;
+        pidProfile->pid[PID_PITCH].D = 17;
+        pidProfile->pid[PID_ROLL].P = 28;
+        pidProfile->pid[PID_ROLL].I = 70;
+        pidProfile->pid[PID_ROLL].D = 20;
+    #elif defined(HELIO_FREESTYLE)
+        //optimizng for squished-x
+        pidProfile->pid[PID_PITCH].P = 40;
+        pidProfile->pid[PID_PITCH].I = 55;
+        pidProfile->pid[PID_PITCH].D = 27;
+        pidProfile->pid[PID_ROLL].P = 43;
+        pidProfile->pid[PID_ROLL].I = 45;
+        pidProfile->pid[PID_ROLL].D = 25;
+    #elif defined(HELIO_BANGOOD_SPECIAL)
+        //optimizng for IDKWTF set the normal defaults
+    #else
+        //optimizng for true-x and most standard tunes.
+        pidProfile->pid[PID_PITCH].P = 45;
+        pidProfile->pid[PID_PITCH].I = 50;
+        pidProfile->pid[PID_PITCH].D = 30;
+        pidProfile->pid[PID_ROLL].P = 45;
+        pidProfile->pid[PID_ROLL].I = 50;
+        pidProfile->pid[PID_ROLL].D = 30;
+    #endif
+=======
         pidProfile->pid[PID_PITCH].P = 40;	
         pidProfile->pid[PID_PITCH].I = 50;	
         pidProfile->pid[PID_PITCH].D = 25;	
@@ -53,16 +82,21 @@ void targetConfiguration(void) {
         pidProfile->pid[PID_ROLL].D = 25;
         pidProfile->pid[PID_YAW].P = 40;	
         pidProfile->pid[PID_YAW].I = 50;
+>>>>>>> 213f6d46ee4a62a28091ba2247ba1f7e4bb3b8d2
 
         /* Setpoints */
         // should't need to set these since they don't get init in gyro.c with USE_GYRO_IMUF
         // pidProfile->yaw_lpf_hz = 0;
-        // pidProfile->dterm_lpf_hz = 0;    
+        // pidProfile->dterm_lpf_hz = 0;
         // pidProfile->dterm_notch_hz = 0;
         // pidProfile->dterm_notch_cutoff = 0;
         pidProfile->dterm_filter_type = FILTER_BIQUAD;
+<<<<<<< HEAD
+        pidProfile->dterm_filter_style = NOSP;
+        pidProfile->dterm_lpf_hz = 60;
+=======
         pidProfile->dterm_filter_style = KD_FILTER_NOSP;
         pidProfile->dterm_lpf_hz = 65;
+>>>>>>> 213f6d46ee4a62a28091ba2247ba1f7e4bb3b8d2
     }
 }
-
