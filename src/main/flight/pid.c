@@ -108,7 +108,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .dterm_notch_hz = 260,
         .dterm_notch_cutoff = 160,
         .dterm_filter_type = FILTER_PT1,
-        .dterm_filter_style = CLASSIC,
+        .dterm_filter_style = KD_FILTER_CLASSIC,
         .itermWindupPointPercent = 50,
         .vbatPidCompensation = 0,
         .pidAtMinThrottle = PID_STABILISATION_ON,
@@ -523,16 +523,16 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
             float iDT = 1.0f/deltaT; //divide once
 
             switch (pidProfile->dterm_filter_style) {
-                case CLASSIC:
+                case KD_FILTER_CLASSIC:
                     delta = (rD - previousRateError[axis]) * iDT;
                     previousRateError[axis] = rD;
                     break;
-                case SP:
+                case KD_FILTER_SP:
                     //filter Kd properly along with sp
                     delta = dtermLpfApplyFn(dtermFilterLpf[axis], (rD - previousRateError[axis]) * iDT );
                     previousRateError[axis] = rD;
                     break;
-                case NOSP:
+                case KD_FILTER_NOSP:
                     //filter Kd properly, no sp
                     delta = dtermLpfApplyFn(dtermFilterLpf[axis], (pureRD - previousRateError[axis]) * iDT );
                     previousRateError[axis] = pureRD;
