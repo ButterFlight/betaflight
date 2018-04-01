@@ -222,7 +222,7 @@ void processRcCommand(void)
                     rxRefreshRate = rxGetRefreshRate();
             }
 
-            rcInterpolationStepCount = rxRefreshRate / targetPidLooptime;
+            rcInterpolationStepCount = rxRefreshRate / constrainf(targetPidLooptime, 62.5f, 5000.0f);
             inverseRcInt = 1.0f / (float)rcInterpolationStepCount;
 
             for (int channel = ROLL; channel < interpolationChannels; channel++) {
