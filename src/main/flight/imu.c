@@ -199,17 +199,27 @@ static float imuUseFastGains(void) {
     }
 }
 
-static void imuMahonyAHRSupdate(float dt, quaternion *vGyro, bool useAcc, quaternion *vAcc, bool useMag, quaternion *vMag, bool useYaw, float yawError) {
+static void imuMahonyAHRSupdate(float dt, quaternion *vGyro, bool useAcc, quaternion *vAcc, bool useMag, quaternion *vMag, bool useCOG, float courseOverGround) {
     quaternion vKpKi = VECTOR_INITIALIZE;
     quaternion vError = VECTOR_INITIALIZE;
     static quaternion vIntegralFB = VECTOR_INITIALIZE;
     quaternion qBuff, qDiff;
 
-    // use raw heading error (from GPS or whatever else)
-    if (useYaw) {
-        while (yawError >  M_PIf) yawError -= (2.0f * M_PIf);
-        while (yawError < -M_PIf) yawError += (2.0f * M_PIf);
-        vError.z += sin_approx(yawError / 2.0f);
+
+    if (useCOG) {
+        // Use raw heading error (from GPS or whatever else)
+        while (courseOverGround >  M_PIf) courseOverGround -= (2.0f * M_PIf);
+        while (courseOverGround < -M_PIf) courseOverGround += (2.0f * M_PIf);
+
+        // William Premerlani and Paul Bizard, Direction Cosine Matrix IMU - Eqn. 22-23
+        // (Rxx; Ryx) - measured (estimated) heading vector (EF)
+        // (cos(COG), sin(COG)) - reference heading vector (EF)
+        // error is cross product between reference heading and estimated heading (calculated in EF)
+        const float ez_ef = - sin_approx(courseOverGround) * (1.0f - 2.0f * qpAttitude.yy - 2.0f * qpAttitude.zz) - cos_approx(courseOverGround) * (2.0f * (qpAttitude.xy - -qpAttitude.wz));
+
+        vError.x += (2.0f * (qpAttitude.xz + -qpAttitude.wy)) * ez_ef;
+        vError.y += (2.0f * (qpAttitude.yz - -qpAttitude.wx)) * ez_ef;
+        vError.z += (1.0f - 2.0f * qpAttitude.xx - 2.0f * qpAttitude.yy) * ez_ef;
     }
 
 #ifdef USE_MAG
@@ -332,10 +342,11 @@ STATIC_UNIT_TESTED void imuUpdateEulerAngles(void) {
 static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
 {
     static timeUs_t previousIMUUpdateTime;
-    float rawYawError = 0;
-    bool useAcc = true;
+
+    bool useAcc = false;
     bool useMag = false;
-    bool useYaw = false;
+    bool useCOG = false;
+    float courseOverGround = 0;
 
     const timeDelta_t deltaT = currentTimeUs - previousIMUUpdateTime;
     previousIMUUpdateTime = currentTimeUs;
@@ -346,10 +357,23 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
     }
 #endif
 #if defined(USE_GPS)
-    if (STATE(FIXED_WING) && sensors(SENSOR_GPS) && STATE(GPS_FIX) && gpsSol.numSat >= 5 && gpsSol.groundSpeed >= 300) {
+    else if (sensors(SENSOR_GPS) && STATE(GPS_FIX) && gpsSol.numSat >= 5 && gpsSol.groundSpeed >= 600) {
+        static bool hasInitializedGPSHeading = false;
         // In case of a fixed-wing aircraft we can use GPS course over ground to correct heading
-        rawYawError = DECIDEGREES_TO_RADIANS(attitude.values.yaw - gpsSol.groundCourse);
-        useYaw = true;
+        if(STATE(FIXED_WING)) {
+            courseOverGround = DECIDEGREES_TO_RADIANS(gpsSol.groundCourse);
+            useCOG = true;
+        } else {
+            float tiltDirection = atan2_approx(attitude.values.roll, attitude.values.pitch); // For applying correction to heading based on craft tilt in 2d space
+            courseOverGround = tiltDirection + DECIDEGREES_TO_RADIANS(gpsSol.groundCourse);
+
+            if (!hasInitializedGPSHeading && GPS_distanceToHome > 50) { // Initially correct the gps heading, we can deal with gradual corrections later
+                attitude.values.yaw = RADIANS_TO_DECIDEGREES(courseOverGround);
+                hasInitializedGPSHeading = true;
+            }
+
+            useCOG = true; // Tell the IMU to correct attitude.values.yaw with this data
+        }
     }
 #endif
 
@@ -357,8 +381,8 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
     UNUSED(imuMahonyAHRSupdate);
     UNUSED(useAcc);
     UNUSED(useMag);
-    UNUSED(useYaw);
-    UNUSED(rawYawError);
+    UNUSED(useCOG);
+    UNUSED(courseOverGround);
 #else
 
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_IMU_SYNC)
@@ -379,7 +403,7 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
       compassGetAverage(&vMagAverage);
     }
 
-    imuMahonyAHRSupdate(deltaT * 1e-6f, &vGyroAverage, useAcc, &vAccAverage, useMag, &vMagAverage, useYaw, rawYawError);
+    imuMahonyAHRSupdate(deltaT * 1e-6f, &vGyroAverage, useAcc, &vAccAverage, useMag, &vMagAverage, useCOG, courseOverGround);
     imuUpdateEulerAngles();
 #endif
 
