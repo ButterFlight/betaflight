@@ -155,6 +155,7 @@ int imuf9001Whoami(const gyroDev_t *gyro)
                 case 101:
                 case 102:
                 case 103:
+                case 104:
                     //force update
                     if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
                     {
@@ -163,7 +164,7 @@ int imuf9001Whoami(const gyroDev_t *gyro)
                         systemReset();
                     }
                 break;
-                case 104: //version 103 required right now
+                case 105: //version 103 required right now
                     return IMUF_9001_SPI;
                 break;
                 default:
@@ -273,10 +274,15 @@ void imufSpiGyroInit(gyroDev_t *gyro)
     }
 }
 
+bool imufReadAccData(accDev_t *acc) {
+    UNUSED(acc);
+    return true;
+}
+
 bool imufSpiAccDetect(accDev_t *acc)
 {
     acc->initFn = imufSpiAccInit;
-    acc->readFn = NULL;
+    acc->readFn = imufReadAccData;
 
     return true;
 }
@@ -300,4 +306,9 @@ bool imufSpiGyroDetect(gyroDev_t *gyro)
 void imufStartCalibration(void)
 {
     isImufCalibrating = IMUF_CALIBRATION_STEP1; //reset by EXTI
+}
+
+void imufEndCalibration(void)
+{
+    isImufCalibrating = IMUF_NOT_CALIBRATING; //reset by EXTI
 }

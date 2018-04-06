@@ -211,8 +211,11 @@ bool mpuGyroDmaSpiReadStart(gyroDev_t * gyro)
             isImufCalibrating = IMUF_CALIBRATION_STEP2; //go to step two
         }
         else
-        {   //step 2, memset of the tx buffer has run, set isImufCalibrating to 0.
-            isImufCalibrating = IMUF_NOT_CALIBRATING;
+        {
+            // step 2, memset of the tx buffer has run, set isImufCalibrating to 0.
+            (*(imufCommand_t *)(dmaTxBuffer)).command = 0;
+            (*(imufCommand_t *)(dmaTxBuffer)).crc     = 0; //typecast the dmaTxBuffer as a uint32_t array which is what the crc command needs
+            imufEndCalibration();
         }
 
     }
