@@ -218,7 +218,7 @@ FAST_CODE void applyAccError(quaternion *vAcc, quaternion *vError) {
 
 FAST_CODE float calcMagError(quaternion *vMag){
     quaternionNormalize(vMag);
-    
+
     // (hx; hy; 0) - measured mag field vector in EF (assuming Z-component is zero)
     // (bx; 0; 0) - reference mag field vector heading due North in EF (assuming Z-component is zero)
     const float hx = (1.0f - 2.0f * qpAttitude.yy - 2.0f * qpAttitude.zz) * vMag->x + (2.0f * (qpAttitude.xy + -qpAttitude.wz)) * vMag->y + (2.0f * (qpAttitude.xz - -qpAttitude.wy)) * vMag->z;
@@ -237,14 +237,14 @@ FAST_CODE float calcCogError(float courseOverGround){
     // (Rxx; Ryx) - measured (estimated) heading vector (EF)
     // (cos(COG), sin(COG)) - reference heading vector (EF)
     // error is cross product between reference heading and estimated heading (calculated in EF)
-    return -(float)sin_approx(courseOverGround) * (1.0f - 2.0f * qpAttitude.yy - 2.0f * qpAttitude.zz) - cos_approx(courseOverGround) * (2.0f * (qpAttitude.xy - -qpAttitude.wz));   
+    return -(float)sin_approx(courseOverGround) * (1.0f - 2.0f * qpAttitude.yy - 2.0f * qpAttitude.zz) - cos_approx(courseOverGround) * (2.0f * (qpAttitude.xy - -qpAttitude.wz));
 }
 
 FAST_CODE void applySensorCorrection(quaternion *vError){
     (void)(vError);
 #ifdef USE_GPS
     if (sensors(SENSOR_GPS) && STATE(GPS_FIX) && gpsSol.numSat >= 5 && gpsSol.groundSpeed >= 600) {
-        float courseOverGround = 0;        
+        float courseOverGround = 0;
         static bool hasInitializedGPSHeading = false;
         // In case of a fixed-wing aircraft we can use GPS course over ground to correct heading
         if(STATE(FIXED_WING)) {
@@ -258,7 +258,7 @@ FAST_CODE void applySensorCorrection(quaternion *vError){
                 hasInitializedGPSHeading = true;
             }
         }
-        applyVectorError(calcCogError(courseOverGround), vError);        
+        applyVectorError(calcCogError(courseOverGround), vError);
     }
 #endif
 
@@ -268,7 +268,7 @@ FAST_CODE void applySensorCorrection(quaternion *vError){
     if (sensors(SENSOR_MAG) && compassIsHealthy(&vMagAverage)) {
         // For magnetometer correction we make an assumption that magnetic field is perpendicular to gravity (ignore Z-component in EF).
         // This way magnetic field will only affect heading and wont mess roll/pitch angles
-        compassGetAverage(&vMagAverage);        
+        compassGetAverage(&vMagAverage);
         applyVectorError(calcMagError(&vMagAverage), vError);
     }
 #endif
@@ -334,7 +334,7 @@ static void imuMahonyAHRSupdate(float dt, quaternion *vGyro, quaternion *vError)
 
 STATIC_UNIT_TESTED void imuUpdateEulerAngles(void) {
     quaternionProducts buffer;
-    
+
     if (FLIGHT_MODE(HEADFREE_MODE)) {
         quaternionMultiply(&qOffset, &qAttitude, &qHeadfree);
         quaternionComputeProducts(&qHeadfree, &buffer);
@@ -382,7 +382,7 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
     }
     DEBUG_SET(DEBUG_IMU, DEBUG_IMU_VACCMODULUS, lrintf((quaternionModulus(&vAccAverage)/ acc.dev.acc_1G) * 1000));
     applySensorCorrection(&vError);
-    imuMahonyAHRSupdate(deltaT * 1e-6f, &vGyroAverage, &vError);    
+    imuMahonyAHRSupdate(deltaT * 1e-6f, &vGyroAverage, &vError);
 #else
     UNUSED(deltaT);
     UNUSED(imuMahonyAHRSupdate);
@@ -392,6 +392,8 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
     qAttitude.z = imufQuat.z;
     applySensorCorrection(&qAttitude);
 #endif
+    // compute caching products
+    quaternionComputeProducts(&qAttitude, &qpAttitude);
     imuUpdateEulerAngles();
 #endif
 
