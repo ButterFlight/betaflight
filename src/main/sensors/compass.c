@@ -268,7 +268,8 @@ bool compassIsHealthy(quaternion *q) {
   const float magModulus = quaternionModulus(q);
 
   //todo findout mag healthy limits
-  return ((100 < magModulus) && (magModulus < 1000));
+  //return ((100 < magModulus) && (magModulus < 1000));
+  return (true)
 }
 
 void compassUpdate(timeUs_t currentTimeUs)
