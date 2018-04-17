@@ -85,7 +85,7 @@ static float smallAngleCosZ = 0;
 static imuRuntimeConfig_t imuRuntimeConfig;
 
 // quaternion of sensor frame relative to earth frame
-STATIC_UNIT_TESTED quaternion qAttitude = QUATERNION_INITIALIZE;
+quaternion qAttitude = QUATERNION_INITIALIZE;
 STATIC_UNIT_TESTED quaternionProducts qpAttitude = QUATERNION_PRODUCTS_INITIALIZE;
 // headfree quaternions
 quaternion qHeadfree = QUATERNION_INITIALIZE;

@@ -45,6 +45,7 @@ typedef union {
 
 extern attitudeEulerAngles_t attitude;
 extern quaternion qHeadfree;
+extern quaternion qAttitude;
 
 typedef struct accDeadband_s {
     uint8_t xy;                 // set the acc deadband for xy-Axis
