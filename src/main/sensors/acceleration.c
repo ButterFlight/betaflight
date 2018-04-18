@@ -363,7 +363,7 @@ bool accInit(void)
         acc.dev.accAlign = accelerometerConfig()->acc_align;
     }
     #endif //USE_ACC_IMUF9001
-    
+
     return true;
 }
 
@@ -384,7 +384,7 @@ static bool isOnFinalAccelerationCalibrationCycle(void)
 
 static bool isOnFirstAccelerationCalibrationCycle(void)
 {
-    return calibratingA == CALIBRATING_ACC_CYCLES;\
+    return calibratingA == CALIBRATING_ACC_CYCLES;
 }
 
 static void performAccelerationCalibration(rollAndPitchTrims_t *rollAndPitchTrims)
@@ -502,14 +502,14 @@ void accUpdate(timeUs_t currentTimeUs, rollAndPitchTrims_t *rollAndPitchTrims)
     acc.accADC[X] -= accelerationTrims->raw[X];
     acc.accADC[Y] -= accelerationTrims->raw[Y];
     acc.accADC[Z] -= accelerationTrims->raw[Z];
-    
+
     #ifndef USE_GYRO_IMUF9001
     ++accumulatedMeasurementCount;
     for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
         accumulatedMeasurements[axis] += acc.accADC[axis];
     }
     #endif
-    acc.isAccelUpdatedAtLeastOnce = true;    
+    acc.isAccelUpdatedAtLeastOnce = true;
 }
 
 #ifndef USE_GYRO_IMUF9001
