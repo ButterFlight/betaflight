@@ -158,7 +158,7 @@ STATIC_UNIT_TESTED gyroDev_t * const gyroDevPtr = &gyroSensor1.gyroDev;
     #endif // USE_GYRO_BIQUAD_RC_FIR2
 
     static void gyroInitSensorFilters(gyroSensor_t *gyroSensor);
-#endif //!USE_GYRO_IMUF9001    
+#endif //!USE_GYRO_IMUF9001
 
 #define DEBUG_GYRO_CALIBRATION 3
 
@@ -458,16 +458,12 @@ static bool gyroInitSensor(gyroSensor_t *gyroSensor)
         return false;
     }
 
-    if (gyroHardware < 32) { //enum for ones that use 32K are numbered higher than 32.
-        gyroConfigMutable()->gyro_use_32khz = false;
-    }
-
     // Must set gyro targetLooptime before gyroDev.init and initialisation of filters
     gyro.targetLooptime = gyroSetSampleRate(&gyroSensor->gyroDev, gyroConfig()->gyro_lpf, gyroConfig()->gyro_sync_denom, gyroConfig()->gyro_use_32khz);
     gyroSensor->gyroDev.lpf = gyroConfig()->gyro_lpf;
     gyroSensor->gyroDev.initFn(&gyroSensor->gyroDev);
-    
-    
+
+
     #ifndef USE_GYRO_IMUF9001
     if (gyroConfig()->gyro_align != ALIGN_DEFAULT) {
         gyroSensor->gyroDev.gyroAlign = gyroConfig()->gyro_align;
@@ -717,7 +713,7 @@ bool gyroIsSane(void)
 
 uint16_t returnGyroAlignmentForImuf9001(void)
 {
-    if (isBoardAlignmentStandard(boardAlignment())) 
+    if (isBoardAlignmentStandard(boardAlignment()))
     {
         if(gyroConfig()->gyro_align <= 1)
         {
@@ -728,7 +724,7 @@ uint16_t returnGyroAlignmentForImuf9001(void)
             return (uint16_t)(gyroConfig()->gyro_align - 1);
         }
     }
-    else 
+    else
     {
         return (uint16_t)IMU_CW0;
     }
@@ -960,7 +956,7 @@ static FAST_CODE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t curren
         gyroDataAnalyse(&gyroSensor->gyroDev, gyroSensor->notchFilterDyn);
     }
     #endif
-    
+
     const timeDelta_t sampleDeltaUs = currentTimeUs - accumulationLastTimeSampledUs;
     accumulationLastTimeSampledUs = currentTimeUs;
     accumulatedMeasurementTimeUs += sampleDeltaUs;
@@ -1005,9 +1001,9 @@ static FAST_CODE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t curren
                 gyroPrevious[axis] = gyroADCf;
             }
         }
-        
+
     } else {
-        
+
         for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
             DEBUG_SET(DEBUG_GYRO_RAW, axis, gyroSensor->gyroDev.gyroADCRaw[axis]);
             // scale gyro output to degrees per second
@@ -1065,7 +1061,7 @@ static FAST_CODE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t curren
         }
     }
 #endif //USE_GYRO_IMUF9001
-    
+
 }
 
 #ifdef USE_DMA_SPI_DEVICE
