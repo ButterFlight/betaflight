@@ -76,11 +76,6 @@ FAST_CODE void alignSensors(float *dest, uint8_t rotation)
     const float y = dest[Y];
     const float z = dest[Z];
 
-    if (!standardBoardAlignment) {
-        alignBoard(dest);
-        return;
-    }
-
     switch (rotation) {
     default:
     case CW0_DEG:
@@ -124,4 +119,7 @@ FAST_CODE void alignSensors(float *dest, uint8_t rotation)
         dest[Z] = -z;
         break;
     }
+
+    if (!standardBoardAlignment)
+        alignBoard(dest);
 }
