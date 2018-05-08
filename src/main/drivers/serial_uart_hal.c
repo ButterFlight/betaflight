@@ -94,6 +94,11 @@ void uartReconfigure(uartPort_t *uartPort)
 
     usartConfigurePinInversion(uartPort);
 
+#ifdef TARGET_USART_CONFIG
+    void usartTargetConfigure(uartPort_t *);
+    usartTargetConfigure(uartPort);
+#endif
+
     if (uartPort->port.options & SERIAL_BIDIR)
     {
         HAL_HalfDuplex_Init(&uartPort->Handle);

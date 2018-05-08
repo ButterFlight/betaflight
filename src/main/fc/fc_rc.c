@@ -185,7 +185,7 @@ static void checkForThrottleErrorResetState(void)
     }
 }
 
-void processRcCommand(void)
+FAST_CODE NOINLINE void processRcCommand(void)
 {
     if (skipNextInterpolate && !isRXDataNew) {
         skipNextInterpolate = false;
@@ -287,7 +287,7 @@ void processRcCommand(void)
     }
 }
 
-void updateRcCommands(void)
+FAST_CODE NOINLINE void updateRcCommands(void)
 {
     isRXDataNew = true;
     // PITCH & ROLL only dynamic PID adjustment,  depending on throttle value

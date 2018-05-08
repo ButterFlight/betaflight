@@ -906,7 +906,7 @@ static void checkForOverflow(gyroSensor_t *gyroSensor, timeUs_t currentTimeUs)
 }
 #endif //!USE_GYRO_IMUF9001
 
-static FAST_CODE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t currentTimeUs)
+static FAST_CODE NOINLINE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t currentTimeUs)
 {
     #ifdef USE_DMA_SPI_DEVICE
     if (!dmaSpiGyroDataReady) {

@@ -244,6 +244,60 @@
     SystemCoreClockUpdate();
   }
 
+typedef struct pllConfig_s {
+  uint16_t n;
+  uint16_t p;
+  uint16_t q;
+} pllConfig_t;
+
+static const pllConfig_t overclockLevels[] = {
+  { PLL_N, PLL_P, PLL_Q },    // default
+  { 480, RCC_PLLP_DIV2, 10 }, // 240 MHz
+};
+
+// 8 bytes of memory located at the very end of RAM, expected to be unoccupied
+#define REQUEST_OVERCLOCK               (*(__IO uint32_t *) (BKPSRAM_BASE + 8))
+#define CURRENT_OVERCLOCK_LEVEL         (*(__IO uint32_t *) (BKPSRAM_BASE + 12))
+#define REQUEST_OVERCLOCK_MAGIC_COOKIE  0xBABEFACE
+
+void SystemInitOC(void) {
+    __PWR_CLK_ENABLE();
+    __BKPSRAM_CLK_ENABLE();
+    HAL_PWR_EnableBkUpAccess();
+
+    if (REQUEST_OVERCLOCK_MAGIC_COOKIE == REQUEST_OVERCLOCK) {
+      const uint32_t overclockLevel = CURRENT_OVERCLOCK_LEVEL;
+
+      /* PLL setting for overclocking */
+      if (overclockLevel < ARRAYLEN(overclockLevels)) {
+        const pllConfig_t * const pll = overclockLevels + overclockLevel;
+
+        pll_n = pll->n;
+        pll_p = pll->p;
+        pll_q = pll->q;
+      }
+
+      REQUEST_OVERCLOCK = 0;
+    }
+}
+
+void OverclockRebootIfNecessary(uint32_t overclockLevel)
+{
+    if (overclockLevel >= ARRAYLEN(overclockLevels)) {
+        return;
+    }
+
+    const pllConfig_t * const pll = overclockLevels + overclockLevel;
+
+    // Reboot to adjust overclock frequency
+    if (SystemCoreClock != (pll->n / pll->p) * 1000000) {
+        REQUEST_OVERCLOCK = REQUEST_OVERCLOCK_MAGIC_COOKIE;
+        CURRENT_OVERCLOCK_LEVEL = overclockLevel;
+        __disable_irq();
+        NVIC_SystemReset();
+    }
+}
+
 /**
   * @}
   */
@@ -304,7 +358,7 @@ void SystemInit(void)
     /* Configure the system clock to 216 MHz */
     SystemClock_Config();
 
-    if (SystemCoreClock != 216000000) {
+    if (SystemCoreClock != (pll_n / pll_p) * 1000000) {
         // There is a mismatch between the configured clock and the expected clock in portable.h
         while (1);
     }
