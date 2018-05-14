@@ -52,8 +52,8 @@
 // --> change spi from spi1 to spi3
 
 // OMNIBUS F7 NEXT has two IMUs - MPU6000 onboard and ICM20608 (MPU6500) in the vibration dampened box
-#define GYRO_MPU6000_ALIGN      CW180_DEG
-#define ACC_MPU6000_ALIGN       CW180_DEG
+#define GYRO_MPU6000_ALIGN      CW90_DEG
+#define ACC_MPU6000_ALIGN       CW90_DEG
 
 #define GYRO_MPU6500_ALIGN      CW90_DEG
 #define ACC_MPU6500_ALIGN       CW90_DEG
