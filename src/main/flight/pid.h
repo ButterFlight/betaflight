@@ -92,6 +92,7 @@ typedef struct pidProfile_s {
     uint16_t itermAcceleratorGain;          // Iterm Accelerator Gain when itermThrottlethreshold is hit
     uint8_t setpointRelaxRatio;             // Setpoint weight relaxation effect
     uint8_t dtermSetpointWeight;            // Setpoint weight for Dterm (0= measurement, 1= full error, 1 > aggressive derivative)
+    uint8_t buttered_pids;                  // option to use separate pid controller at runtime.
     uint16_t yawRateAccelLimit;             // yaw accel limiter for deg/sec/ms
     uint16_t rateAccelLimit;                // accel limiter roll/pitch deg/sec/ms
     uint16_t crash_dthreshold;              // dterm crash value
@@ -105,6 +106,8 @@ typedef struct pidProfile_s {
     uint16_t crash_limit_yaw;               // limits yaw errorRate, so crashes don't cause huge throttle increase
     uint16_t itermLimit;
 } pidProfile_t;
+
+typedef float (*pidControllerFn)(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
 
 #ifndef USE_OSD_SLAVE
 PG_DECLARE_ARRAY(pidProfile_t, MAX_PROFILE_COUNT, pidProfiles);

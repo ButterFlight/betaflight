@@ -54,6 +54,7 @@
 static uint8_t tmpPidProfileIndex;
 static uint8_t pidProfileIndex;
 static char pidProfileIndexString[] = " p";
+static uint8_t buttered_pids;
 static uint8_t tempPid[3][3];
 
 static uint8_t tmpRateProfileIndex;
@@ -108,6 +109,7 @@ static long cmsx_PidRead(void)
 {
 
     const pidProfile_t *pidProfile = pidProfiles(pidProfileIndex);
+    buttered_pids = pidProfile->buttered_pids;
     for (uint8_t i = 0; i < 3; i++) {
         tempPid[i][0] = pidProfile->pid[i].P;
         tempPid[i][1] = pidProfile->pid[i].I;
@@ -131,6 +133,7 @@ static long cmsx_PidWriteback(const OSD_Entry *self)
 
     pidProfile_t *pidProfile = currentPidProfile;
     for (uint8_t i = 0; i < 3; i++) {
+        pidProfile->buttered_pids = buttered_pids;
         pidProfile->pid[i].P = tempPid[i][0];
         pidProfile->pid[i].I = tempPid[i][1];
         pidProfile->pid[i].D = tempPid[i][2];
@@ -144,6 +147,7 @@ static OSD_Entry cmsx_menuPidEntries[] =
 {
     { "-- PID --", OME_Label, NULL, pidProfileIndexString, 0},
 
+    { "BUTTERED", OME_UINT8, NULL, &(OSD_UINT8_t){ &buttered_pids      ,  0, 1,   1 }, 0 },
     { "ROLL  P", OME_UINT8, NULL, &(OSD_UINT8_t){ &tempPid[PID_ROLL][0],  0, 200, 1 }, 0 },
     { "ROLL  I", OME_UINT8, NULL, &(OSD_UINT8_t){ &tempPid[PID_ROLL][1],  0, 200, 1 }, 0 },
     { "ROLL  D", OME_UINT8, NULL, &(OSD_UINT8_t){ &tempPid[PID_ROLL][2],  0, 200, 1 }, 0 },

@@ -51,11 +51,13 @@ void targetConfiguration(void) {
 
         pidProfile->pid[PID_PITCH].P = 45;	
         pidProfile->pid[PID_PITCH].I = 50;		
+        pidProfile->pid[PID_PITCH].D = 12;		
         pidProfile->pid[PID_ROLL].P  = 45;	
         pidProfile->pid[PID_ROLL].I  = 50;
+        pidProfile->pid[PID_ROLL].D  = 14;
         pidProfile->pid[PID_YAW].P   = 45;	
         pidProfile->pid[PID_YAW].I   = 50;
-        pidProfile->pid[PID_YAW].D   = 8;
+        pidProfile->pid[PID_YAW].D   = 5;
 
         /* Setpoints */
         // should't need to set these since they don't get init in gyro.c with USE_GYRO_IMUF
@@ -63,9 +65,6 @@ void targetConfiguration(void) {
         // pidProfile->dterm_lpf_hz = 0;    
         // pidProfile->dterm_notch_hz = 0;
         // pidProfile->dterm_notch_cutoff = 0;
-        pidProfile->dtermSetpointWeight   = 100;	
-        pidProfile->setpointRelaxRatio    = 100;
-        pidProfile->itermAcceleratorGain  = 3000;
         pidProfile->dterm_filter_type     = FILTER_BIQUAD;
         pidProfile->dterm_filter_style    = KD_FILTER_NOSP;
         pidProfile->dterm_lpf_hz          = 65;
