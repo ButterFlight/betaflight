@@ -237,17 +237,23 @@ static bool writeSettingsToEEPROM(void)
 void writeConfigToEEPROM(void)
 {
     bool success = false;
+    #ifndef SITL    
+    __disable_irq();   
+    #endif //SITL
+     
     // write it
-    for (int attempt = 0; attempt < 3 && !success; attempt++) {
+    for (int attempt = 0; attempt < 5 && !success; attempt++) {
         if (writeSettingsToEEPROM()) {
-            success = true;
+            success = isEEPROMContentValid();
         }
     }
+    #ifndef SITL        
+    __enable_irq();
+    #endif //SITL
 
-    if (success && isEEPROMContentValid()) {
-        return;
+    if (!success) {
+        failureMode(FAILURE_FLASH_WRITE_FAILED);
     }
 
     // Flash write failed - just die now
-    failureMode(FAILURE_FLASH_WRITE_FAILED);
 }
