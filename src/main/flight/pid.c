@@ -91,7 +91,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .pid = {
             [PID_ROLL] =  { 40, 40, 20 },
             [PID_PITCH] = { 58, 50, 22 },
-            [PID_YAW] =   { 70, 45, 20 },
+            [PID_YAW] =   { 70, 45, 8 },
             [PID_ALT] =   { 50, 0, 0 },
             [PID_POS] =   { 15, 0, 0 },     // POSHOLD_P * 100, POSHOLD_I * 100,
             [PID_POSR] =  { 34, 14, 53 },   // POSHOLD_RATE_P * 10, POSHOLD_RATE_I * 100, POSHOLD_RATE_D * 1000,
@@ -102,13 +102,12 @@ void resetPidProfile(pidProfile_t *pidProfile)
         },
 
         .pidSumLimit = PIDSUM_LIMIT,
-        .pidSumLimitYaw = PIDSUM_LIMIT_YAW,
         .yaw_lpf_hz = 0,
-        .dterm_lpf_hz = 100,    // filtering ON by default
+        .dterm_lpf_hz = 65,    // filtering ON by default
         .dterm_notch_hz = 260,
         .dterm_notch_cutoff = 160,
-        .dterm_filter_type = FILTER_PT1,
-        .dterm_filter_style = KD_FILTER_CLASSIC,
+        .dterm_filter_type = FILTER_BIQUAD,
+        .dterm_filter_style = KD_FILTER_NOSP,
         .itermWindupPointPercent = 50,
         .vbatPidCompensation = 0,
         .pidAtMinThrottle = PID_STABILISATION_ON,
@@ -169,16 +168,14 @@ void pidStabilisationState(pidStabilisationState_e pidControllerState)
 const angle_index_t rcAliasToAngleIndexMap[] = { AI_ROLL, AI_PITCH };
 
 static FAST_RAM filterApplyFnPtr dtermNotchFilterApplyFn;
-static FAST_RAM void *dtermFilterNotch[2];
+static FAST_RAM void *dtermFilterNotch[3];
 static FAST_RAM filterApplyFnPtr dtermLpfApplyFn;
-static FAST_RAM void *dtermFilterLpf[2];
-static FAST_RAM filterApplyFnPtr ptermYawFilterApplyFn;
-static FAST_RAM void *ptermYawFilter;
+static FAST_RAM void *dtermFilterLpf[3];
 
 typedef union dtermFilterLpf_u {
-    pt1Filter_t pt1Filter[2];
-    biquadFilter_t biquadFilter[2];
-    firFilterDenoise_t denoisingFilter[2];
+    pt1Filter_t pt1Filter[3];
+    biquadFilter_t biquadFilter[3];
+    firFilterDenoise_t denoisingFilter[3];
 } dtermFilterLpf_t;
 
 void pidInitFilters(const pidProfile_t *pidProfile)
@@ -189,7 +186,6 @@ void pidInitFilters(const pidProfile_t *pidProfile)
         // no looptime set, so set all the filters to null
         dtermNotchFilterApplyFn = nullFilterApply;
         dtermLpfApplyFn = nullFilterApply;
-        ptermYawFilterApplyFn = nullFilterApply;
         return;
     }
 
@@ -207,7 +203,7 @@ void pidInitFilters(const pidProfile_t *pidProfile)
     }
 
     if (dTermNotchHz != 0 && pidProfile->dterm_notch_cutoff != 0) {
-        static biquadFilter_t biquadFilterNotch[2];
+        static biquadFilter_t biquadFilterNotch[3];
         dtermNotchFilterApplyFn = (filterApplyFnPtr)biquadFilterApply;
         const float notchQ = filterGetNotchQ(dTermNotchHz, pidProfile->dterm_notch_cutoff);
         for (int axis = FD_ROLL; axis <= FD_PITCH; axis++) {
@@ -248,15 +244,6 @@ void pidInitFilters(const pidProfile_t *pidProfile)
             }
             break;
         }
-    }
-
-    static pt1Filter_t pt1FilterYaw;
-    if (pidProfile->yaw_lpf_hz == 0 || pidProfile->yaw_lpf_hz > pidFrequencyNyquist) {
-        ptermYawFilterApplyFn = nullFilterApply;
-    } else {
-        ptermYawFilterApplyFn = (filterApplyFnPtr)pt1FilterApply;
-        ptermYawFilter = &pt1FilterYaw;
-        pt1FilterInit(ptermYawFilter, pidProfile->yaw_lpf_hz, dT);
     }
 }
 
@@ -418,7 +405,7 @@ static float accelerationLimit(int axis, float currentPidSetpoint)
 // Based on 2DOF reference design (matlab)
 void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *angleTrim, timeUs_t currentTimeUs)
 {
-    static float previousRateError[2];
+    static float previousRateError[3];
     const float tpaFactor = getThrottlePIDAttenuation();
     const float motorMixRange = getMotorMixRange();
     static timeUs_t crashDetectedAtUs;
@@ -426,6 +413,8 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
 
     // calculate actual deltaT in seconds
     const float deltaT = (currentTimeUs - previousTimeUs) * 0.000001f;
+    const float iDT = 1.0f/deltaT; //divide once
+    
     previousTimeUs = currentTimeUs;
 
     // Dynamic i component,
@@ -435,21 +424,27 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
 
     // Dynamic d component, enable 2-DOF PID controller only for rate mode
     const float dynCd = flightModeFlags ? 0.0f : dtermSetpointWeight;
+    float currentPidSetpoint;
+    float ITermNew;
+    float gyroRateFiltered;
+    float ornD;    // cr - y
+    float setpointT;
+    float dDelta;
+    float errorRate;
 
     // ----------PID controller----------
     for (int axis = FD_ROLL; axis <= FD_YAW; axis++) {
-        float currentPidSetpoint = getSetpointRate(axis);
+        currentPidSetpoint = getSetpointRate(axis);
         if (maxVelocity[axis]) {
             currentPidSetpoint = accelerationLimit(axis, currentPidSetpoint);
         }
         // Yaw control is GYRO based, direct sticks control is applied to rate PID
-        if ((FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) && axis != YAW) {
+        if ((FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) && axis != FD_YAW) {
             currentPidSetpoint = pidLevel(axis, pidProfile, angleTrim, currentPidSetpoint);
         }
 
         // -----calculate error rate
-        const float gyroRate = gyro.gyroADCf[axis]; // Process variable from gyro output in deg/sec
-        float errorRate = currentPidSetpoint - gyroRate; // r - y
+        errorRate = currentPidSetpoint - gyro.gyroADCf[axis]; // r - y
 
         if (inCrashRecoveryMode && cmpTimeUs(currentTimeUs, crashDetectedAtUs) > crashTimeDelayUs) {
             if (pidProfile->crash_recovery == PID_CRASH_RECOVERY_BEEP) {
@@ -463,7 +458,7 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
                     // errorAngle is deviation from horizontal
                     const float errorAngle =  -(attitude.raw[axis] - angleTrim->raw[axis]) / 10.0f;
                     currentPidSetpoint = errorAngle * levelGain;
-                    errorRate = currentPidSetpoint - gyroRate;
+                    errorRate = currentPidSetpoint - gyro.gyroADCf[axis];
                 }
             }
             // reset ITerm, since accumulated error before crash is now meaningless
@@ -494,77 +489,65 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
 
         // -----calculate P component and add Dynamic Part based on stick input
         axisPID_P[axis] = Kp[axis] * errorRate * tpaFactor;
-        if (axis == FD_YAW) {
-            axisPID_P[axis] = ptermYawFilterApplyFn(ptermYawFilter, axisPID_P[axis]);
-        }
 
         // -----calculate I component
-        const float ITerm = axisPID_I[axis];
-        const float ITermNew = constrainf(ITerm + Ki[axis] * errorRate * dynCi, -itermLimit, itermLimit);
-        const bool outputSaturated = mixerIsOutputSaturated(axis, errorRate);
-        if (outputSaturated == false || ABS(ITermNew) < ABS(ITerm)) {
+        ITermNew = constrainf(axisPID_I[axis] + Ki[axis] * errorRate * dynCi, -itermLimit, itermLimit);
+        if (!mixerIsOutputSaturated(axis, errorRate) || ABS(ITermNew) < ABS(axisPID_I[axis])) {
             // Only increase ITerm if output is not saturated
             axisPID_I[axis] = ITermNew;
         }
 
         // -----calculate D component
-        if (axis != FD_YAW) {
-            // apply filters
-            float gyroRateFiltered = dtermNotchFilterApplyFn(dtermFilterNotch[axis], gyroRate);
-            if (pidProfile->dterm_filter_style == KD_FILTER_CLASSIC)
-            {
-                gyroRateFiltered = dtermLpfApplyFn(dtermFilterLpf[axis], gyroRateFiltered);
-            }
+        // apply filters
+        gyroRateFiltered = dtermNotchFilterApplyFn(dtermFilterNotch[axis], gyro.gyroADCf[axis]);
+        if (pidProfile->dterm_filter_style == KD_FILTER_CLASSIC)
+        {
+            gyroRateFiltered = dtermLpfApplyFn(dtermFilterLpf[axis], gyroRateFiltered);
+        }
+        
+        setpointT = dynCd * MIN(getRcDeflectionAbs(axis) * relaxFactor, 1.0f);
+        ornD = setpointT * currentPidSetpoint - gyroRateFiltered; 
+        
+        switch (pidProfile->dterm_filter_style) {
+            case KD_FILTER_SP:
+                //filter Kd properly along with sp
+                dDelta = dtermLpfApplyFn(dtermFilterLpf[axis], (ornD - previousRateError[axis]) * iDT );
+                break;
+            case KD_FILTER_NOSP:
+                ornD = setpointT * getSetpointRate(axis) - gyroRateFiltered;    // cr - y
+                dDelta = dtermLpfApplyFn(dtermFilterLpf[axis], (ornD - previousRateError[axis]) * iDT );                
+                //filter Kd properly, no sp
+                break;
+            case KD_FILTER_CLASSIC:
+            default:
+                dDelta = (ornD - previousRateError[axis]) * iDT;
+                break;
+        }
+        previousRateError[axis] = ornD;
 
-            const float rD = dynCd * MIN(getRcDeflectionAbs(axis) * relaxFactor, 1.0f) * currentPidSetpoint - gyroRateFiltered;    // cr - y
-            const float pureRD = dynCd * MIN(getRcDeflectionAbs(axis) * relaxFactor, 1.0f) * getSetpointRate(axis) - gyroRateFiltered;    // cr - y
-            
-            float delta = 0.0f;
-            float iDT = 1.0f/deltaT; //divide once
-
-            switch (pidProfile->dterm_filter_style) {
-                case KD_FILTER_CLASSIC:
-                    delta = (rD - previousRateError[axis]) * iDT;
-                    previousRateError[axis] = rD;
-                    break;
-                case KD_FILTER_SP:
-                    //filter Kd properly along with sp
-                    delta = dtermLpfApplyFn(dtermFilterLpf[axis], (rD - previousRateError[axis]) * iDT );
-                    previousRateError[axis] = rD;
-                    break;
-                case KD_FILTER_NOSP:
-                    //filter Kd properly, no sp
-                    delta = dtermLpfApplyFn(dtermFilterLpf[axis], (pureRD - previousRateError[axis]) * iDT );
-                    previousRateError[axis] = pureRD;
-                    break;
-            }
-
-            // if crash recovery is on and accelerometer enabled and there is no gyro overflow, then check for a crash
-            // no point in trying to recover if the crash is so severe that the gyro overflows
-            if (pidProfile->crash_recovery && !gyroOverflowDetected()) {
-                if (ARMING_FLAG(ARMED)) {
-                    if (motorMixRange >= 1.0f && !inCrashRecoveryMode
-                        && ABS(delta) > crashDtermThreshold
-                        && ABS(errorRate) > crashGyroThreshold
-                        && ABS(getSetpointRate(axis)) < crashSetpointThreshold) {
-                        inCrashRecoveryMode = true;
-                        crashDetectedAtUs = currentTimeUs;
-                    }
-                    if (inCrashRecoveryMode && cmpTimeUs(currentTimeUs, crashDetectedAtUs) < crashTimeDelayUs && (ABS(errorRate) < crashGyroThreshold
-                        || ABS(getSetpointRate(axis)) > crashSetpointThreshold)) {
-                        inCrashRecoveryMode = false;
-                        BEEP_OFF;
-                    }
-                } else if (inCrashRecoveryMode) {
+        // if crash recovery is on and accelerometer enabled and there is no gyro overflow, then check for a crash
+        // no point in trying to recover if the crash is so severe that the gyro overflows
+        if (pidProfile->crash_recovery && !gyroOverflowDetected()) {
+            if (ARMING_FLAG(ARMED)) {
+                if (motorMixRange >= 1.0f && !inCrashRecoveryMode
+                    && ABS(dDelta) > crashDtermThreshold
+                    && ABS(errorRate) > crashGyroThreshold
+                    && ABS(getSetpointRate(axis)) < crashSetpointThreshold) {
+                    inCrashRecoveryMode = true;
+                    crashDetectedAtUs = currentTimeUs;
+                }
+                if (inCrashRecoveryMode && cmpTimeUs(currentTimeUs, crashDetectedAtUs) < crashTimeDelayUs && (ABS(errorRate) < crashGyroThreshold
+                    || ABS(getSetpointRate(axis)) > crashSetpointThreshold)) {
                     inCrashRecoveryMode = false;
                     BEEP_OFF;
                 }
+            } else if (inCrashRecoveryMode) {
+                inCrashRecoveryMode = false;
+                BEEP_OFF;
             }
-            axisPID_D[axis] = Kd[axis] * delta * tpaFactor;
-            axisPIDSum[axis] = axisPID_P[axis] + axisPID_I[axis] + axisPID_D[axis];
-        } else {
-            axisPIDSum[axis] = axisPID_P[axis] + axisPID_I[axis];
         }
+        axisPID_D[axis] = Kd[axis] * dDelta * tpaFactor;
+        axisPIDSum[axis] = axisPID_P[axis] + axisPID_I[axis] + axisPID_D[axis];
 
         // Disable PID control if at zero throttle or if gyro overflow detected
         if (!pidStabilisationEnabled || gyroOverflowDetected()) {
