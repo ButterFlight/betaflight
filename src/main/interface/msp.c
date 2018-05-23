@@ -781,13 +781,13 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
             }
 
             for (int i = 0; i < 3; i++) {
-                sbufWriteU16(dst, acc.accADC[i] / scale);
+                sbufWriteU16(dst, lrintf(acc.accADC[i] / scale));
             }
             for (int i = 0; i < 3; i++) {
                 sbufWriteU16(dst, gyroRateDps(i));
             }
             for (int i = 0; i < 3; i++) {
-                sbufWriteU16(dst, mag.magADC[i]);
+                sbufWriteU16(dst, lrintf(mag.magADC[i]));
             }
         }
         break;
@@ -1178,6 +1178,7 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         sbufWriteU16(dst, gyroConfig()->gyro_soft_notch_hz_2);
         sbufWriteU16(dst, gyroConfig()->gyro_soft_notch_cutoff_2);
         sbufWriteU8(dst, currentPidProfile->dterm_filter_type);
+        sbufWriteU8(dst, gyroConfig()->gyro_stage2_filter_type);
         break;
 
 #ifdef USE_GYRO_FAST_KALMAN
@@ -1664,9 +1665,14 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         if (sbufBytesRemaining(src) >= 1) {
             currentPidProfile->dterm_filter_type = sbufReadU8(src);
         }
+        if (sbufBytesRemaining(src) >= 1) {
+            gyroConfigMutable()->gyro_stage2_filter_type = sbufReadU8(src);
+        }
         // reinitialize the gyro filters with the new values
         validateAndFixGyroConfig();
+#ifndef USE_GYRO_IMUF9001  
         gyroInitFilters();
+#endif //!USE_GYRO_IMUF9001
         // reinitialize the PID filters with the new values
         pidInitFilters(currentPidProfile);
         break;
@@ -1732,6 +1738,7 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
 
     case MSP_ACC_CALIBRATION:
         if (!ARMING_FLAG(ARMED))
+            gyroStartCalibration(false);
             accSetCalibrationCycles(CALIBRATING_ACC_CYCLES);
         break;
 

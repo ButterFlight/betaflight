@@ -19,29 +19,31 @@
 
 #include "common/axis.h"
 #include "common/time.h"
+#include "common/maths.h"
 #include "pg/pg.h"
 #include "drivers/bus.h"
 #include "drivers/sensor.h"
 
-typedef enum {
-    GYRO_NONE = 0,
-    GYRO_DEFAULT,
-    GYRO_MPU6050,
-    GYRO_L3G4200D,
-    GYRO_MPU3050,
-    GYRO_L3GD20,
-    GYRO_MPU6000,
-    GYRO_MPU6500,
-    GYRO_MPU9250,
-    GYRO_ICM20601,
-    GYRO_ICM20602,
-    GYRO_ICM20608G,
-    GYRO_ICM20649,
-    GYRO_ICM20689,
-    GYRO_BMI160,
-    GYRO_IMUF9001,
-    GYRO_FAKE
-} gyroSensor_e;
+extern float vGyroStdDevModulus;
+ typedef enum {
+     GYRO_NONE = 0,
+     GYRO_DEFAULT,
+     GYRO_MPU6050,
+     GYRO_L3G4200D,
+     GYRO_MPU3050,
+     GYRO_L3GD20,
+     GYRO_MPU6000,
+     GYRO_MPU6500,
+     GYRO_MPU9250,
+     GYRO_ICM20601,
+     GYRO_ICM20602,
+     GYRO_ICM20608G,
+     GYRO_ICM20649,
+     GYRO_ICM20689,
+     GYRO_BMI160,
+     GYRO_IMUF9001,
+     GYRO_FAKE
+ } gyroSensor_e;
 
 typedef struct gyro_s {
     uint32_t targetLooptime;
@@ -115,7 +117,7 @@ void gyroDmaSpiFinishRead(void);
 void gyroDmaSpiStartRead(void);
 #endif
 void gyroUpdate(timeUs_t currentTimeUs);
-bool gyroGetAccumulationAverage(float *accumulation);
+bool gyroGetAverage(quaternion *vAverage);
 const busDevice_t *gyroSensorBus(void);
 struct mpuConfiguration_s;
 const struct mpuConfiguration_s *gyroMpuConfiguration(void);

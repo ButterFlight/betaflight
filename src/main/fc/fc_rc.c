@@ -135,9 +135,6 @@ static void calculateSetpointRate(int axis)
     rcDeflectionAbs[axis] = rcCommandfAbs;
 
     float angleRate = applyRates(axis, rcCommandf, rcCommandfAbs);
-
-    DEBUG_SET(DEBUG_ANGLERATE, axis, angleRate);
-
     setpointRate[axis] = constrainf(angleRate, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT); // Rate limit protection (deg/sec)
 }
 
@@ -166,7 +163,7 @@ static void scaleRcCommandToFpvCamAngle(void)
 static void checkForThrottleErrorResetState(void)
 {
     currentRxRefreshRate = constrain(getTaskDeltaTime(TASK_RX),1000,20000);
-    
+
     static int index;
     static int16_t rcCommandThrottlePrevious[THROTTLE_BUFFER_MAX];
 
@@ -265,6 +262,24 @@ void processRcCommand(void)
         if (rxConfig()->fpvCamAngleDegrees && IS_RC_MODE_ACTIVE(BOXFPVANGLEMIX) && !FLIGHT_MODE(HEADFREE_MODE)) {
             scaleRcCommandToFpvCamAngle();
         }
+
+        // HEADFREE_MODE in ACRO_MODE
+        // yaw rotation is earthframe bound
+        if (FLIGHT_MODE(HEADFREE_MODE) && (!FLIGHT_MODE(ANGLE_MODE)) && (!FLIGHT_MODE(HORIZON_MODE))) {
+            quaternion  vSetpointRate = VECTOR_INITIALIZE;
+
+            vSetpointRate.x = setpointRate[ROLL];
+            vSetpointRate.y = setpointRate[PITCH];
+            vSetpointRate.z = setpointRate[YAW];
+            quaternionTransformVectorEarthToBody(&vSetpointRate, &qHeadfree);
+            setpointRate[ROLL] = constrainf(vSetpointRate.x, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT);
+            setpointRate[PITCH] = constrainf(vSetpointRate.y, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT);
+            setpointRate[YAW] = constrainf(vSetpointRate.z, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT);
+        }
+
+        DEBUG_SET(DEBUG_ANGLERATE, ROLL, setpointRate[ROLL]);
+        DEBUG_SET(DEBUG_ANGLERATE, PITCH, setpointRate[PITCH]);
+        DEBUG_SET(DEBUG_ANGLERATE, YAW, setpointRate[YAW]);
     }
 
     if (isRXDataNew) {
@@ -348,22 +363,17 @@ void updateRcCommands(void)
             }
         }
     }
-    if (FLIGHT_MODE(HEADFREE_MODE)) {
-        static t_fp_vector_def  rcCommandBuff;
 
-        rcCommandBuff.X = rcCommand[ROLL];
-        rcCommandBuff.Y = rcCommand[PITCH];
-        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)))) {
-            rcCommandBuff.Z = rcCommand[YAW];
-        } else {
-            rcCommandBuff.Z = 0;
-        }
-        imuQuaternionHeadfreeTransformVectorEarthToBody(&rcCommandBuff);
-        rcCommand[ROLL] = rcCommandBuff.X;
-        rcCommand[PITCH] = rcCommandBuff.Y;
-        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)))) {
-            rcCommand[YAW] = rcCommandBuff.Z;
-        }
+    // HEADFREE_MODE  in ANGLE_MODE HORIZON_MODE
+    // yaw rotation is bodyframe bound
+    if (FLIGHT_MODE(HEADFREE_MODE) && (FLIGHT_MODE(ANGLE_MODE) || (FLIGHT_MODE(HORIZON_MODE)))) {
+        quaternion  vRcCommand = VECTOR_INITIALIZE;
+
+        vRcCommand.x = rcCommand[ROLL];
+        vRcCommand.y = rcCommand[PITCH];
+        quaternionTransformVectorEarthToBody(&vRcCommand, &qHeadfree);
+        rcCommand[ROLL] = vRcCommand.x;
+        rcCommand[PITCH] = vRcCommand.y;
     }
 }
 

@@ -37,12 +37,16 @@
 #include "drivers/sensor.h"
 #include "drivers/time.h"
 #include "fc/config.h"
+#include "fc/runtime_config.h"
 
 #include "sensors/boardalignment.h"
 
 #include "drivers/system.h"
 
+
+volatile uint16_t imufCurrentVersion = IMUF_FIRMWARE_VERSION;
 volatile uint32_t isImufCalibrating = 0;
+volatile imuFrame_t imufQuat;
 
 void crcConfig(void)
 {
@@ -146,28 +150,21 @@ int imuf9001Whoami(const gyroDev_t *gyro)
     uint32_t attempt;
     imufCommand_t reply;
 
-    for (attempt = 0; attempt < 3; attempt++)
+    for (attempt = 0; attempt < 10; attempt++)
     {
         if (imuf9001SendReceiveCommand(gyro, IMUF_COMMAND_REPORT_INFO, &reply, NULL))
         {
-            switch ( (*(imufVersion_t *)&(reply.param1)).firmware )
-            {
-                case 101:
-                case 102:
-                case 103:
-                    //force update
-                    if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
-                    {
-                        (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
-                        delay(10);
-                        systemReset();
-                    }
-                break;
-                case 104: //version 103 required right now
-                    return IMUF_9001_SPI;
-                break;
-                default:
-                break;
+            imufCurrentVersion = (*(imufVersion_t *)&(reply.param1)).firmware;
+            if (imufCurrentVersion < IMUF_FIRMWARE_VERSION) {
+                //force update
+                if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
+                {
+                    (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
+                    delay(10);
+                    systemReset();
+                }
+            } else {
+                return IMUF_9001_SPI;
             }
         }
     }
@@ -200,7 +197,7 @@ uint8_t imuf9001SpiDetect(const gyroDev_t *gyro)
 
     hardwareInitialised = true;
 
-    for (int x=0; x<5; x++)
+    for (int x=0; x<10; x++)
     {
         int returnCheck;
         if (x)
@@ -214,7 +211,6 @@ uint8_t imuf9001SpiDetect(const gyroDev_t *gyro)
             return returnCheck;
         }
     }
-
     return 0;
 }
 
@@ -256,7 +252,7 @@ void imufSpiGyroInit(gyroDev_t *gyro)
     rxData.param8 = ( (int16_t)boardAlignment()->rollDegrees << 16 ) | returnGyroAlignmentForImuf9001();
     rxData.param9 = ( (int16_t)boardAlignment()->yawDegrees << 16 ) | (int16_t)boardAlignment()->pitchDegrees;
 
-    for (attempt = 0; attempt < 3; attempt++)
+    for (attempt = 0; attempt < 10; attempt++)
     {
         if(attempt)
         {
@@ -271,12 +267,18 @@ void imufSpiGyroInit(gyroDev_t *gyro)
             return;
         }
     }
+    setArmingDisabled(ARMING_DISABLED_NO_GYRO);
+}
+
+bool imufReadAccData(accDev_t *acc) {
+    UNUSED(acc);
+    return true;
 }
 
 bool imufSpiAccDetect(accDev_t *acc)
 {
     acc->initFn = imufSpiAccInit;
-    acc->readFn = NULL;
+    acc->readFn = imufReadAccData;
 
     return true;
 }
@@ -294,10 +296,16 @@ bool imufSpiGyroDetect(gyroDev_t *gyro)
     gyro->initFn = imufSpiGyroInit;
     gyro->readFn = mpuGyroDmaSpiReadStart;
     gyro->scale = 1.0f;
+    gyro->mpuConfiguration.resetFn = resetImuf9001;
     return true;
 }
 
 void imufStartCalibration(void)
 {
-    isImufCalibrating = IMUF_CALIBRATION_STEP1; //reset by EXTI
+    isImufCalibrating = IMUF_IS_CALIBRATING; //reset by EXTI
+}
+
+void imufEndCalibration(void)
+{
+    isImufCalibrating = IMUF_NOT_CALIBRATING; //reset by EXTI
 }
