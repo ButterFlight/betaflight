@@ -76,6 +76,12 @@ blackbox_unittest_SRC :=  \
 		$(USER_DIR)/common/typeconversion.c \
 		$(USER_DIR)/drivers/accgyro/gyro_sync.c
 
+buttered_classic_equiv_unittest_SRC := \
+		$(USER_DIR)/flight/pid.c \
+		$(USER_DIR)/common/filter.c \
+		$(USER_DIR)/common/maths.c \
+		$(USER_DIR)/drivers/accgyro/gyro_sync.c
+
 blackbox_encoding_unittest_SRC :=  \
 		$(USER_DIR)/blackbox/blackbox_encoding.c \
 		$(USER_DIR)/common/encoding.c \
