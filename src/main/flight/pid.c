@@ -64,6 +64,7 @@ static FAST_RAM_ZERO_INIT bool pidStabilisationEnabled;
 static FAST_RAM_ZERO_INIT bool inCrashRecoveryMode = false;
 
 static FAST_RAM_ZERO_INIT float dT;
+static FAST_RAM_ZERO_INIT float iDT;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(pidConfig_t, pidConfig, PG_PID_CONFIG, 2);
 
@@ -167,6 +168,7 @@ static void pidSetTargetLooptime(uint32_t pidLooptime)
 {
     targetPidLooptime = pidLooptime;
     dT = (float)targetPidLooptime * 0.000001f;
+    iDT = 1.0f / dT;
 }
 
 void pidResetITerm(void)
@@ -299,8 +301,8 @@ static FAST_RAM float itermLimit;
 pt1Filter_t throttleLpf;
 static FAST_RAM_ZERO_INIT bool itermRotation;
 
-float butteredPids(int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
-float classicPids(int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
+float butteredPids(int axis, float errorRate, float dynCi, float currentPidSetpoint);
+float classicPids(int axis, float errorRate, float dynCi, float currentPidSetpoint);
 
 void pidInitConfig(const pidProfile_t *pidProfile)
 {
@@ -533,10 +535,9 @@ static FAST_CODE void handleItermRotation()
 
 static FAST_RAM float previousRateError[3];
 static FAST_RAM timeUs_t crashDetectedAtUs;
-static FAST_RAM timeUs_t previousTimeUs;
 
 // Butterflight pid controlelr which uses measurement instead of error rate to calculate D
-FAST_CODE float butteredPids(int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint) 
+FAST_CODE float butteredPids(int axis, float errorRate, float dynCi, float currentPidSetpoint)
 {
     (void)(currentPidSetpoint);
     // -----calculate P component
@@ -564,9 +565,8 @@ FAST_CODE float butteredPids(int axis, float errorRate, float dynCi, float iDT, 
 static float previousGyroRateDterm[3];
 static float previousPidSetpoint[3];
 static float gyroRateDterm[3];
-FAST_CODE float classicPids(int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint) 
+FAST_CODE float classicPids(int axis, float errorRate, float dynCi, float currentPidSetpoint)
 {
-    (void)(iDT);
     // --------low-level gyro-based PID based on 2DOF PID controller. ----------
     // 2-DOF PID controller with optional filter on derivative term.
     // b = 1 and only c (dtermSetpointWeight) can be tuned (amount derivative on measurement or error).
@@ -595,7 +595,7 @@ FAST_CODE float classicPids(int axis, float errorRate, float dynCi, float iDT, f
     gyroRateDterm[axis] = dtermNotchApplyFn((filter_t *) &dtermNotch[axis], gyroRateDterm[axis]);
     const float delta = (
         (flightModeFlags ? 0.0f : dtermSetpointWeight) * transition * (currentPidSetpoint - previousPidSetpoint[axis]) -
-        (gyroRateDterm[axis] - previousGyroRateDterm[axis])) / dT;
+        (gyroRateDterm[axis] - previousGyroRateDterm[axis])) * iDT;
 
     previousPidSetpoint[axis] = currentPidSetpoint;
     previousGyroRateDterm[axis] = gyroRateDterm[axis];
@@ -606,14 +606,11 @@ FAST_CODE float classicPids(int axis, float errorRate, float dynCi, float iDT, f
 
 void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *angleTrim, timeUs_t currentTimeUs)
 {
-   
-    timeUs_t deltaT = currentTimeUs - previousTimeUs;
     const float motorMixRange = getMotorMixRange();
 
     // Dynamic i component,
     // gradually scale back integration when above windup point
     const float dynCi = MIN((1.0f - motorMixRange) * ITermWindupPointInv, 1.0f) * dT * itermAccelerator;
-    const float iDT = 1.0f/deltaT; //divide once
     // Dynamic d component, enable 2-DOF PID controller only for rate mode
     float currentPidSetpoint;
 
@@ -659,7 +656,7 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
             pidProfile->crash_recovery, angleTrim, axis, currentTimeUs, gyro.gyroADCf[axis],
             &currentPidSetpoint, &errorRate);
 
-        float delta = activePidController(axis, errorRate, dynCi, iDT, currentPidSetpoint);
+        float delta = activePidController(axis, errorRate, dynCi, currentPidSetpoint);
 
 
         detectAndSetCrashRecovery(pidProfile->crash_recovery, axis, currentTimeUs, delta, errorRate);
