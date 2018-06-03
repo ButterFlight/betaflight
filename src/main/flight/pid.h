@@ -115,7 +115,7 @@ typedef struct pidProfile_s {
     uint8_t  iterm_rotation;                    // rotates iterm to translate world errors to local coordinate system
 } pidProfile_t;
 
-typedef float (*pidControllerFn)(int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
+typedef float (*pidControllerFn)(int axis, float errorRate, float dynCi, float currentPidSetpoint);
 
 #ifndef USE_OSD_SLAVE
 PG_DECLARE_ARRAY(pidProfile_t, MAX_PROFILE_COUNT, pidProfiles);
