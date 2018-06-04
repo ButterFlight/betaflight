@@ -211,8 +211,14 @@ typedef enum imufCalibrationSteps
 
 } imufCalibrationSteps_t;
 
+typedef enum gpioState
+{
+    GPIO_LO    = 0,
+    GPIO_HI     = 1
+} gpioState_t;
+
 extern volatile imuFrame_t imufQuat;
 volatile uint32_t isImufCalibrating;
 
-extern void resetImuf9001(void);
+extern void initImuf9001(void);
 extern uint32_t getCrcImuf9001(uint32_t* data, uint32_t size);

@@ -70,9 +70,9 @@ inline void appendCrcToData(uint32_t* data, uint32_t size)
     data[size] = getCrcImuf9001(data, size);;
 }
 
-static inline void gpio_write_pin(GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, uint32_t pinState)
+static inline void gpio_write_pin(GPIO_TypeDef * GPIOx, uint16_t GPIO_Pin, gpioState_t pinState)
 {
-    if (pinState != 0)
+    if (pinState == GPIO_HI)
     {
         GPIOx->BSRRL = (uint32_t)GPIO_Pin;
     }
@@ -113,6 +113,24 @@ void resetImuf9001(void)
     imufSpiCsHi();
     delay(100);
 
+void resetImuf9001(void)
+{
+    gpio_write_pin(GPIOA, GPIO_Pin_4, GPIO_LO);
+    delay(400);
+    gpio_write_pin(GPIOA, GPIO_Pin_4, GPIO_HI);
+    delay(100);
+}
+
+void initImuf9001(void) 
+{
+    GPIO_InitTypeDef gpioInitStruct;
+    gpioInitStruct.GPIO_Pin   = GPIO_Pin_4;
+    gpioInitStruct.GPIO_Mode  = GPIO_Mode_OUT;
+    gpioInitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+    gpioInitStruct.GPIO_OType = GPIO_OType_OD;
+    gpioInitStruct.GPIO_PuPd  = GPIO_PuPd_NOPULL;
+    GPIO_Init(GPIOA, &gpioInitStruct);
+    resetImuf9001();
 }
 
 bool imufSendReceiveSpiBlocking(const busDevice_t *bus, uint8_t *dataTx, uint8_t *daRx, uint8_t length)
