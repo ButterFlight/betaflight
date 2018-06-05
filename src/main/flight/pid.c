@@ -124,7 +124,7 @@ void resetPidProfile(pidProfile_t *pidProfile)
 
         .pidSumLimit = PIDSUM_LIMIT,
         .yaw_lowpass_hz = 0,
-        .dterm_lowpass_hz = 100,    // filtering ON by default
+        .dterm_lowpass_hz = 60,    // filtering ON by default
         .dterm_lowpass2_hz = 0,    // second Dterm LPF OFF by default
         .dterm_notch_hz = 260,
         .dterm_notch_cutoff = 160,
