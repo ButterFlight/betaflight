@@ -59,6 +59,7 @@ static FAST_RAM bool inCrashRecoveryMode = false;
 FAST_RAM float axisPID_P[3], axisPID_I[3], axisPID_D[3], axisPIDSum[3];
 
 static FAST_RAM float dT;
+static FAST_RAM float iDT;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(pidConfig_t, pidConfig, PG_PID_CONFIG, 2);
 
@@ -161,6 +162,7 @@ static void pidSetTargetLooptime(uint32_t pidLooptime)
 {
     targetPidLooptime = pidLooptime;
     dT = (float)targetPidLooptime * 0.000001f;
+    iDT = 1.0f / dT;
 }
 
 void pidResetITerm(void)
@@ -279,8 +281,8 @@ static FAST_RAM float crashSetpointThreshold;
 static FAST_RAM float crashLimitYaw;
 static FAST_RAM float itermLimit;
 
-float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
-float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint);
+float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float currentPidSetpoint);
+float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float currentPidSetpoint);
 
 void pidInitConfig(const pidProfile_t *pidProfile)
 {
@@ -422,10 +424,9 @@ static float accelerationLimit(int axis, float currentPidSetpoint)
 
 static FAST_RAM float previousRateError[3];
 static FAST_RAM timeUs_t crashDetectedAtUs;
-static FAST_RAM timeUs_t previousTimeUs;
 
 // Butterflight pid controlelr which uses measurement instead of error rate to calculate D
-float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint) 
+float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float currentPidSetpoint)
 {
     (void)(pidProfile);
     (void)(currentPidSetpoint);
@@ -451,7 +452,7 @@ float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, fl
 // Betaflight pid controller, which will be maintained in the future with additional features specialised for current (mini) multirotor usage.
 // Based on 2DOF reference design (matlab)
 
-float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float iDT, float currentPidSetpoint) 
+float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, float dynCi, float currentPidSetpoint)
 {
     // --------low-level gyro-based PID based on 2DOF PID controller. ----------
     // 2-DOF PID controller with optional filter on derivative term.
@@ -502,12 +503,7 @@ float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, flo
 
 void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *angleTrim, timeUs_t currentTimeUs)
 {
-    const float deltaT = (currentTimeUs - previousTimeUs) * 0.000001f;   
-    previousTimeUs = currentTimeUs;    
-    
     const float motorMixRange = getMotorMixRange();
-    // calculate actual deltaT in seconds
-    const float iDT = 1.0f/deltaT; //divide once
     // Dynamic i component,
     // gradually scale back integration when above windup point,
     // use dT (not deltaT) for ITerm calculation to avoid wind-up caused by jitter
@@ -566,7 +562,7 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
             }
         }
 
-        float dDelta = activePidController(pidProfile, axis, errorRate, dynCi, iDT, currentPidSetpoint);
+        float dDelta = activePidController(pidProfile, axis, errorRate, dynCi, currentPidSetpoint);
 
         // if crash recovery is on and accelerometer enabled and there is no gyro overflow, then check for a crash
         // no point in trying to recover if the crash is so severe that the gyro overflows
