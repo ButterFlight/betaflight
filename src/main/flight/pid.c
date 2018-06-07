@@ -316,8 +316,8 @@ static FAST_RAM_ZERO_INIT int acroTrainerAxisState[2];  // only need roll and pi
 static FAST_RAM_ZERO_INIT float acroTrainerGain;
 #endif // USE_ACRO_TRAINER
 
-float butteredPids(int axis, float errorRate, float dynCi, float iDT, float *currentPidSetpoint);
-float classicPids(int axis, float errorRate, float dynCi, float iDT, float *currentPidSetpoint);
+float butteredPids(int axis, float errorRate, float dynCi, float *currentPidSetpoint);
+float classicPids(int axis, float errorRate, float dynCi, float *currentPidSetpoint);
 
 static pidProfile_t* currentPidProfile;
 
@@ -657,10 +657,9 @@ static FAST_CODE_NOINLINE float applyAcroTrainer(int axis, const rollAndPitchTri
 
 static FAST_RAM float previousRateError[3];
 static FAST_RAM timeUs_t crashDetectedAtUs;
-static FAST_RAM timeUs_t previousTimeUs;
 
 // Butterflight pid controlelr which uses measurement instead of error rate to calculate D
-float butteredPids(int axis, float errorRate, float dynCi, float iDT, float *currentPidSetpoint)
+float butteredPids(int axis, float errorRate, float dynCi, float *currentPidSetpoint)
 {
     (void)(currentPidSetpoint);
     // -----calculate P component
@@ -675,7 +674,7 @@ float butteredPids(int axis, float errorRate, float dynCi, float iDT, float *cur
 
     // -----calculate D component
     // use measurement and apply filters. mmmm gimme that butter.      
-    float dDelta = dtermLowpassApplyFn((filter_t *)&dtermLowpass[axis], -((gyro.gyroADCf[axis] - previousRateError[axis]) * iDT));
+    float dDelta = dtermLowpassApplyFn((filter_t *)&dtermLowpass[axis], -((gyro.gyroADCf[axis] - previousRateError[axis]) * pidFrequency));
     previousRateError[axis] = gyro.gyroADCf[axis];
     pidData[axis].D = pidCoefficient[axis].Kd * (dDelta) * getThrottlePIDAttenuation();
     return dDelta;
@@ -684,9 +683,8 @@ float butteredPids(int axis, float errorRate, float dynCi, float iDT, float *cur
 // Betaflight pid controller, which will be maintained in the future with additional features specialised for current (mini) multirotor usage.
 // Based on 2DOF reference design (matlab)
 
-float classicPids(int axis, float errorRate, float dynCi, float iDT, float *currentPidSetpoint) 
+float classicPids(int axis, float errorRate, float dynCi, float *currentPidSetpoint)
 {
-    (void)(iDT);
     static float previousGyroRateDterm[3];
     static float previousPidSetpoint[3];
     static float gyroRateDterm[3];
@@ -734,12 +732,8 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
     const bool yawSpinActive = gyroYawSpinDetected();
 #endif
 
-    const float deltaT = (currentTimeUs - previousTimeUs) * 0.000001f;   
-    previousTimeUs = currentTimeUs;    
-    
+
     const float motorMixRange = getMotorMixRange();
-    // calculate actual deltaT in seconds
-    const float iDT = 1.0f/deltaT; //divide once
     // Dynamic i component,
     // gradually scale back integration when above windup point
     const float dynCi = MIN((1.0f - motorMixRange) * ITermWindupPointInv, 1.0f) * dT * itermAccelerator;
@@ -777,7 +771,7 @@ void pidController(const pidProfile_t *pidProfile, const rollAndPitchTrims_t *an
 
         handleCrashRecovery(angleTrim, axis, currentTimeUs, gyro.gyroADCf[axis], &currentPidSetpoint, &errorRate);
         
-        float dDelta = activePidController(axis, errorRate, dynCi, iDT, &currentPidSetpoint);
+        float dDelta = activePidController(axis, errorRate, dynCi, &currentPidSetpoint);
 
         
 
