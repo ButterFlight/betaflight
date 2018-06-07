@@ -77,6 +77,13 @@
 #ifdef USE_USB_MSC
 #include "drivers/usb_msc.h"
 #endif
+#ifdef USE_DMA_SPI_DEVICE
+#include "drivers/dma_spi.h"
+#endif //USE_DMA_SPI_DEVICE
+
+#ifdef USE_GYRO_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif //USE_GYRO_IMUF9001
 
 #include "fc/board_info.h"
 #include "fc/config.h"
@@ -201,6 +208,41 @@ static IO_t busSwitchResetPin        = IO_NONE;
 }
 #endif
 
+void rebootUpdater(void)
+{
+    #ifdef UPT_ADDRESS
+    typedef void (*pFunction)(void);
+   	pFunction JumpToApplication;
+	uint32_t jumpAddress;
+
+    __disable_irq(); // disable interrupts for jump
+
+    jumpAddress = *(__IO uint32_t*)(UPT_ADDRESS + 4);
+    JumpToApplication = (pFunction)jumpAddress;
+
+    // Initialize user application's Stack Pointer
+    __set_MSP(*(__IO uint32_t*)UPT_ADDRESS);
+    JumpToApplication();
+    #endif
+}
+
+void rebootMsd(void)
+{
+    #ifdef MSD_ADDRESS
+    typedef void (*pFunction)(void);
+   	pFunction JumpToApplication;
+	uint32_t jumpAddress;
+
+    __disable_irq(); // disable interrupts for jump
+
+    jumpAddress = *(__IO uint32_t*)(MSD_ADDRESS + 4);
+    JumpToApplication = (pFunction)jumpAddress;
+
+    // Initialize user application's Stack Pointer
+    __set_MSP(*(__IO uint32_t*)MSD_ADDRESS);
+    JumpToApplication();
+    #endif
+}
 void init(void)
 {
 #ifdef USE_ITCM_RAM
@@ -226,6 +268,13 @@ void init(void)
     printfSupportInit();
 
     systemInit();
+
+#ifdef USE_GYRO_IMUF9001
+    if (isMPUSoftReset()) {
+        // reset imuf before befhal mucks with the pins
+        initImuf9001();
+    }
+#endif
 
     // initialize IO (needed for all IO operations)
     IOInitGlobal();
@@ -395,6 +444,9 @@ void init(void)
 #ifdef USE_SPI_DEVICE_1
     spiInit(SPIDEV_1);
 #endif
+#ifdef USE_DMA_SPI_DEVICE
+    dmaSpiInit();
+#endif
 #ifdef USE_SPI_DEVICE_2
     spiInit(SPIDEV_2);
 #endif
@@ -493,7 +545,9 @@ void init(void)
     // so we are ready to call validateAndFixGyroConfig(), pidInit(), and setAccelerationFilter()
     validateAndFixGyroConfig();
     pidInit(currentPidProfile);
-    accInitFilters();
+    if (sensors(SENSOR_ACC)){
+        accInitFilters();
+    }
 
 #ifdef USE_PID_AUDIO
     pidAudioInit();

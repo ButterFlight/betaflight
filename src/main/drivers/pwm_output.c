@@ -63,7 +63,11 @@ static uint16_t freqBeep = 0;
 static bool pwmMotorsEnabled = false;
 static bool isDshot = false;
 #ifdef USE_DSHOT_DMAR
-FAST_RAM_ZERO_INIT bool useBurstDshot = false;
+#ifdef ENABLE_DSHOT_DMAR
+bool useBurstDshot = true;
+#else
+bool useBurstDshot = false;
+#endif
 #endif
 
 static void pwmOCConfig(TIM_TypeDef *tim, uint8_t channel, uint16_t value, uint8_t output)

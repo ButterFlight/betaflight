@@ -52,6 +52,20 @@ COMMON_SRC = \
             io/statusindicator.c \
             io/transponder_ir.c \
             msp/msp_serial.c \
+            pg/adc.c \
+            pg/beeper.c \
+            pg/beeper_dev.c \
+            pg/bus_i2c.c \
+            pg/bus_spi.c \
+            pg/dashboard.c \
+            pg/max7456.c \
+            pg/pinio.c \
+            pg/piniobox.c \
+            pg/pg.c \
+            pg/rx_pwm.c \
+            pg/sdcard.c \
+            pg/vcd.c \
+            pg/usb.c \
             scheduler/scheduler.c \
             sensors/adcinternal.c \
             sensors/battery.c \

@@ -49,7 +49,7 @@ bool gyroSyncCheckUpdate(gyroDev_t *gyro)
 
 uint32_t gyroSetSampleRate(gyroDev_t *gyro, uint8_t lpf, uint8_t gyroSyncDenominator, bool gyro_use_32khz)
 {
-    float gyroSamplePeriod;
+       float gyroSamplePeriod;
 
     if (lpf == GYRO_HARDWARE_LPF_NORMAL || lpf == GYRO_HARDWARE_LPF_EXPERIMENTAL) {
         if (gyro_use_32khz) {

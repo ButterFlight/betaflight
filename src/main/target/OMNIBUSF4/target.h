@@ -24,6 +24,8 @@
 
 #if defined(OMNIBUSF4SD)
 #define TARGET_BOARD_IDENTIFIER "OBSD"
+#elif defined(OBF4NANOBB)
+#define TARGET_BOARD_IDENTIFIER "NANO"
 #elif defined(LUXF4OSD)
 #define TARGET_BOARD_IDENTIFIER "LUX4"
 #elif defined(DYSF4PRO)
@@ -47,6 +49,8 @@
 #define USBD_PRODUCT_STRING "XRACERF4"
 #elif defined(EXUAVF4PRO)
 #define USBD_PRODUCT_STRING "ExuavF4Pro"
+#elif defined(OBF4NANOBB)
+#define USBD_PRODUCT_STRING "OBF4Nano"
 #else
 #define USBD_PRODUCT_STRING "OmnibusF4"
 #endif
@@ -65,7 +69,7 @@
 // Users of these timers/pads must un-map the inverter assignment explicitly.
 #define INVERTER_PIN_UART6      PC8 // Omnibus F4 V3 and later
 #define INVERTER_PIN_UART3      PC9 // Omnibus F4 Pro Corners
-#elif defined(EXUAVF4PRO)
+#elif defined(EXUAVF4PRO) || defined (OBF4NANOBB)
 #define INVERTER_PIN_UART6      PC8
 #else
 #define INVERTER_PIN_UART1      PC0 // DYS F4 Pro; Omnibus F4 AIO (1st gen) have a FIXED inverter on UART1
@@ -85,7 +89,7 @@
 #define MPU_INT_EXTI            PC4
 #define USE_MPU_DATA_READY_SIGNAL
 
-#if defined(OMNIBUSF4SD)
+#if defined(OMNIBUSF4SD) || defined(OBF4NANOBB)
 #define GYRO_MPU6000_ALIGN       CW270_DEG
 #define ACC_MPU6000_ALIGN        CW270_DEG
 #elif defined(XRACERF4) || defined(EXUAVF4PRO)
@@ -114,7 +118,7 @@
 #define MAG_HMC5883_ALIGN       CW90_DEG
 
 #define USE_BARO
-#if defined(OMNIBUSF4SD)
+#if defined(OMNIBUSF4SD) || defined(OBF4NANOBB)
 #define USE_BARO_SPI_BMP280
 #define BMP280_SPI_INSTANCE     SPI3
 #define BMP280_CS_PIN           PB3 // v1
@@ -124,7 +128,7 @@
 #define USE_BARO_MS5611
 #define BARO_I2C_INSTANCE       (I2CDEV_2)
 
-#if defined(OMNIBUSF4SD)
+#if defined(OMNIBUSF4SD) || defined(OBF4NANOBB)
 #define DEFAULT_BARO_SPI_BMP280
 #else
 #define DEFAULT_BARO_BMP280
@@ -160,7 +164,7 @@
 #define FLASH_CS_PIN            SDCARD_SPI_CS_PIN
 #define FLASH_SPI_INSTANCE      SDCARD_SPI_INSTANCE
 
-#elif defined(LUXF4OSD)
+#elif defined(LUXF4OSD) || defined(OBF4NANOBB)
 #define ENABLE_BLACKBOX_LOGGING_ON_SPIFLASH_BY_DEFAULT
 #define FLASH_CS_PIN            PB12
 #define FLASH_SPI_INSTANCE      SPI2
@@ -216,7 +220,7 @@
 #define USE_SPI
 #define USE_SPI_DEVICE_1
 
-#if defined(OMNIBUSF4SD) || defined(LUXF4OSD)
+#if defined(OMNIBUSF4SD) || defined(LUXF4OSD) || defined(OBF4NANOBB)
 #define USE_SPI_DEVICE_2
 #define SPI2_NSS_PIN            PB12
 #define SPI2_SCK_PIN            PB13
@@ -277,7 +281,7 @@
 #define TARGET_IO_PORTC (0xffff & ~(BIT(15)|BIT(14)|BIT(13)))
 #define TARGET_IO_PORTD BIT(2)
 
-#if defined(OMNIBUSF4SD) || defined(EXUAVF4PRO)
+#if defined(OMNIBUSF4SD) || defined(EXUAVF4PRO) || defined(OBF4NANOBB)
 #define USABLE_TIMER_CHANNEL_COUNT 15
 #define USED_TIMERS ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(5) | TIM_N(10) | TIM_N(12) | TIM_N(8) | TIM_N(9))
 #else

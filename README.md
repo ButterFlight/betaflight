@@ -1,17 +1,8 @@
-![Important Notice: Support for STM32F1 based flight controllers has been dropped in Betaflight release 3.3. This includes NAZE, CC3D (original) and CJMCU like flight controllers](https://raw.githubusercontent.com/wiki/betaflight/betaflight/images/betaflight/stm32f1_support_notice.png)
+![Butterflight](http://butterflight.co/img/butterflight-logo.svg)
 
-
-![Betaflight](https://raw.githubusercontent.com/wiki/betaflight/betaflight/images/betaflight/bf_logo.png)
-
-Betaflight is flight controller software (firmware) used to fly multi-rotor craft and fixed wing craft.
+Butterflight is flight controller software (firmware) used to fly multi-rotor craft and fixed wing craft.
 
 This fork differs from Baseflight and Cleanflight in that it focuses on flight performance, leading-edge feature additions, and wide target support.
-
-## Events
-
-| Date  | Event |
-| - | - |
-| 01 July 2018 | Planned [release](https://github.com/betaflight/betaflight/milestone/7) date for Betaflight 3.4 |
 
 ## Features
 
@@ -40,19 +31,17 @@ See: https://github.com/betaflight/betaflight/wiki
 
 There's a dedicated Slack chat channel here:
 
-https://slack.betaflight.com/
-
-Etiquette: Don't ask to ask and please wait around long enough for a reply - sometimes people are out flying, asleep or at work and can't answer immediately.
+https://communityinviter.com/apps/butterflight/butterflight
 
 ## Configuration Tool
 
-To configure Betaflight you should use the Betaflight-configurator GUI tool (Windows/OSX/Linux) that can be found here:
+To configure Butterflight you should use the Betaflight-configurator GUI tool (Windows/OSX/Linux) that can be found here:
 
-https://chrome.google.com/webstore/detail/betaflight-configurator/kdaghagfopacdngbohiknlhcocjccjao
+http://www.butterflight.co
 
 The source for it is here:
 
-https://github.com/betaflight/betaflight-configurator
+https://github.com/butterflight/butterflight-configurator
 
 ## Contributing
 
@@ -65,24 +54,10 @@ Contributions are welcome and encouraged.  You can contribute in many ways:
 
 The best place to start is the IRC channel on gitter (see above), drop in, say hi. Next place is the github issue tracker:
 
-https://github.com/betaflight/betaflight/issues
-https://github.com/betaflight/betaflight-configurator/issues
+https://github.com/butterflight/butterflight/issues
+https://github.com/butterflight/butterflight-configurator/issues
 
 Before creating new issues please check to see if there is an existing one, search first otherwise you waste peoples time when they could be coding instead!
-
-## Developers
-
-Please refer to the development section in the `docs/development` folder.
-
-TravisCI is used to run automatic builds
-
-https://travis-ci.org/betaflight/betaflight
-
-[![Build Status](https://travis-ci.org/betaflight/betaflight.svg?branch=master)](https://travis-ci.org/betaflight/betaflight)
-
-## Betaflight Releases
-
-https://github.com/betaflight/betaflight/releases
 
 ## Open Source / Contributors
 
@@ -96,7 +71,7 @@ Origins for this fork (Thanks!):
 * **Dominic Clifton** (for Cleanflight), and
 * **Sambas** (for the original STM32F4 port).
 
-The Betaflight Configurator is forked from Cleanflight Configurator and its origins.
+The Butterflight Configurator is forked from Betaflight Configurator and its origins.
 
 Origins for Betaflight Configurator:
 * **Dominic Clifton** (for Cleanflight configurator), and
@@ -108,15 +83,15 @@ Big thanks to current and past contributors:
 * Blackman, Jason (blckmn)
 * ctzsnooze
 * Höglund, Anders (andershoglund)
-* Ledvina, Petr (ledvinap) - **IO code awesomeness!**
+* Ledvina, Petr (ledvinap)
 * kc10kevin
 * Keeble, Gary (MadmanK)
-* Keller, Michael (mikeller) - **Configurator brilliance**
-* Kravcov, Albert (skaman82) - **Configurator brilliance**
+* Keller, Michael (mikeller)
+* Kravcov, Albert (skaman82)
 * MJ666
 * Nathan (nathantsoi)
 * ravnav
-* sambas - **bringing us the F4**
+* sambas
 * savaga
 * Stålheim, Anton (KiteAnton)
 

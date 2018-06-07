@@ -30,7 +30,6 @@
 #define PID_MIXER_SCALING           1000.0f
 #define PID_SERVO_MIXER_SCALING     0.7f
 #define PIDSUM_LIMIT                500
-#define PIDSUM_LIMIT_YAW            400
 #define PIDSUM_LIMIT_MIN            100
 #define PIDSUM_LIMIT_MAX            1000
 
@@ -94,7 +93,6 @@ typedef struct pidProfile_s {
     uint8_t dterm_filter_type;              // Filter selection for dterm
     uint8_t itermWindupPointPercent;        // Experimental ITerm windup threshold, percent motor saturation
     uint16_t pidSumLimit;
-    uint16_t pidSumLimitYaw;
     uint8_t pidAtMinThrottle;               // Disable/Enable pids on zero throttle. Normally even without airmode P and D would be active.
     uint8_t levelAngleLimit;                // Max angle in degrees in level mode
 
@@ -104,7 +102,8 @@ typedef struct pidProfile_s {
     // Betaflight PID controller parameters
     uint16_t itermThrottleThreshold;        // max allowed throttle delta before iterm accelerated in ms
     uint16_t itermAcceleratorGain;          // Iterm Accelerator Gain when itermThrottlethreshold is hit
-    uint16_t dtermSetpointWeight;           // Setpoint weight for Dterm (0= measurement, 1= full error, 1 > aggressive derivative)
+    uint8_t dtermSetpointWeight;            // Setpoint weight for Dterm (0= measurement, 1= full error, 1 > aggressive derivative)
+    uint8_t buttered_pids;                  // option to use separate pid controller at runtime.
     uint16_t yawRateAccelLimit;             // yaw accel limiter for deg/sec/ms
     uint16_t rateAccelLimit;                // accel limiter roll/pitch deg/sec/ms
     uint16_t crash_dthreshold;              // dterm crash value
@@ -118,7 +117,6 @@ typedef struct pidProfile_s {
     uint8_t setpointRelaxRatio;             // Setpoint weight relaxation effect
     uint16_t crash_limit_yaw;               // limits yaw errorRate, so crashes don't cause huge throttle increase
     uint16_t itermLimit;
-    uint16_t dterm_lowpass2_hz;             // Extra PT1 Filter on D in hz
     uint8_t crash_recovery;                 // off, on, on and beeps when it is in crash recovery mode
     uint8_t throttle_boost;                 // how much should throttle be boosted during transient changes 0-100, 100 adds 10x hpf filtered throttle
     uint8_t throttle_boost_cutoff;          // Which cutoff frequency to use for throttle boost. higher cutoffs keep the boost on for shorter. Specified in hz.
@@ -135,6 +133,8 @@ typedef struct pidProfile_s {
     uint8_t abs_control_limit;              // Limit to the correction
     uint8_t abs_control_error_limit;        // Limit to the accumulated error
 } pidProfile_t;
+
+typedef float (*pidControllerFn)(int axis, float errorRate, float dynCi, float iDT, float* currentPidSetpoint);
 
 #ifndef USE_OSD_SLAVE
 PG_DECLARE_ARRAY(pidProfile_t, MAX_PROFILE_COUNT, pidProfiles);
