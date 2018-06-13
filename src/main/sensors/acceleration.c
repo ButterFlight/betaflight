@@ -405,12 +405,10 @@ static void performAccelerationCalibration(rollAndPitchTrims_t *rollAndPitchTrim
     }
 
     if (isOnFinalAccelerationCalibrationCycle()) {
-        static const float halfCycles = (CALIBRATING_ACC_CYCLES * 0.5f);
-        
         // Calculate average, shift Z down by acc_1G and store values in EEPROM at end of calibration
-        accelerationTrims->raw[X] = (a[X] + halfCycles) / CALIBRATING_ACC_CYCLES;
-        accelerationTrims->raw[Y] = (a[Y] + halfCycles) / CALIBRATING_ACC_CYCLES;
-        accelerationTrims->raw[Z] = (a[Z] + halfCycles) / CALIBRATING_ACC_CYCLES - acc.dev.acc_1G;
+        accelerationTrims->raw[X] = a[X] / CALIBRATING_ACC_CYCLES;
+        accelerationTrims->raw[Y] = a[Y] / CALIBRATING_ACC_CYCLES;
+        accelerationTrims->raw[Z] = a[Z] / CALIBRATING_ACC_CYCLES - acc.dev.acc_1G;
 
         resetRollAndPitchTrims(rollAndPitchTrims);
 

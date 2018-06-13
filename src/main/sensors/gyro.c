@@ -755,7 +755,7 @@ STATIC_UNIT_TESTED void performGyroCalibration(gyroSensor_t *gyroSensor, uint8_t
         #else
         gyroSensor->calibration.sum[axis] += gyroSensor->gyroDev.gyroADCRaw[axis];
         devPush(&gyroSensor->calibration.var[axis], gyroSensor->gyroDev.gyroADCRaw[axis]);
-        #endif  
+        #endif
 
         if (isOnFinalGyroCalibrationCycle(&gyroSensor->calibration)) {
             const float stddev = devStandardDeviation(&gyroSensor->calibration.var[axis]);
@@ -774,16 +774,23 @@ STATIC_UNIT_TESTED void performGyroCalibration(gyroSensor_t *gyroSensor, uint8_t
             if (axis == Z) {
               gyroSensor->gyroDev.gyroZero[axis] -= ((float)gyroConfig()->gyro_offset_yaw / 100);
             }
-            #else 
-            gyroSensor->gyroDev.gyroZero[axis] = 0.0f; 
-            gyroSensor->calibration.sum[axis] = 0.0f;          
-            #endif 
-        }      
+            #else
+            gyroSensor->gyroDev.gyroZero[axis] = 0.0f;
+            gyroSensor->calibration.sum[axis] = 0.0f;
+            #endif
+        }
     }
 
     if (isOnFinalGyroCalibrationCycle(&gyroSensor->calibration)) {
         schedulerResetTaskStatistics(TASK_SELF); // so calibration cycles do not pollute tasks statistics
         if (!firstArmingCalibrationWasStarted || (getArmingDisableFlags() & ~ARMING_DISABLED_CALIBRATING) == 0) {
+            // calculate gyro noise standard deviation modulus
+            static quaternion vStdDev = VECTOR_INITIALIZE;
+            vStdDev.x =  devStandardDeviation(&gyroSensor->calibration.var[X]);
+            vStdDev.y =  devStandardDeviation(&gyroSensor->calibration.var[Y]);
+            vStdDev.z =  devStandardDeviation(&gyroSensor->calibration.var[Z]);
+            vGyroStdDevModulus =  quaternionModulus(&vStdDev) / 1000.0f;
+
             beeper(BEEPER_GYRO_CALIBRATED);
         }
     }
@@ -890,7 +897,7 @@ static FAST_CODE void gyroUpdateSensor(gyroSensor_t *gyroSensor, timeUs_t curren
     #else
     if (isGyroSensorCalibrationComplete(gyroSensor)) {
         // move 16-bit gyro data into 32-bit variables to avoid overflows in calculations
-        
+
         #if defined(USE_GYRO_SLEW_LIMITER)
         gyroSensor->gyroDev.gyroADC[X] = gyroSlewLimiter(gyroSensor, X) - gyroSensor->gyroDev.gyroZero[X];
         gyroSensor->gyroDev.gyroADC[Y] = gyroSlewLimiter(gyroSensor, Y) - gyroSensor->gyroDev.gyroZero[Y];
