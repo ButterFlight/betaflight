@@ -1,21 +1,26 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
+
+#include <stdint.h>
 
 #ifndef sq
 #define sq(x) ((x)*(x))
@@ -28,14 +33,17 @@
 
 // Use floating point M_PI instead explicitly.
 #define M_PIf       3.14159265358979323846f
+#define M_PI_HALFf  3.14159265358979323846f/2
 
 #define RAD    (M_PIf / 180.0f)
-#define DEGREES_TO_DECIDEGREES(angle) (angle * 10)
-#define DECIDEGREES_TO_DEGREES(angle) (angle / 10)
-#define DECIDEGREES_TO_RADIANS(angle) ((angle / 10.0f) * 0.0174532925f)
+#define DEGREES_TO_DECIDEGREES(angle) ((angle) * 10)
+#define DECIDEGREES_TO_DEGREES(angle) ((angle) / 10)
+#define DECIDEGREES_TO_RADIANS(angle) ((angle) / 10.0f * 0.0174532925f)
 #define DEGREES_TO_RADIANS(angle) ((angle) * 0.0174532925f)
+#define RADIANS_TO_DECIDEGREES(angle) (((angle) * 10.0f) / RAD)
 
-#define CM_S_TO_KM_H(centimetersPerSecond) (centimetersPerSecond * 36 / 1000)
+#define CM_S_TO_KM_H(centimetersPerSecond) ((centimetersPerSecond) * 36 / 1000)
+#define CM_S_TO_MPH(centimetersPerSecond) ((centimetersPerSecond) * 10000 / 5080 / 88)
 
 #define MIN(a,b) \
   __extension__ ({ __typeof__ (a) _a = (a); \
@@ -87,6 +95,7 @@ typedef union {
 int gcd(int num, int denom);
 float powerf(float base, int exp);
 int32_t applyDeadband(int32_t value, int32_t deadband);
+float fapplyDeadband(float value, float deadband);
 
 void devClear(stdev_t *dev);
 void devPush(stdev_t *dev, float x);
@@ -95,6 +104,7 @@ float devStandardDeviation(stdev_t *dev);
 float degreesToRadians(int16_t degrees);
 
 int scaleRange(int x, int srcFrom, int srcTo, int destFrom, int destTo);
+float scaleRangef(float x, float srcFrom, float srcTo, float destFrom, float destTo);
 
 void normalizeV(struct fp_vector *src, struct fp_vector *dest);
 
@@ -117,12 +127,18 @@ float cos_approx(float x);
 float atan2_approx(float y, float x);
 float acos_approx(float x);
 #define tan_approx(x)       (sin_approx(x) / cos_approx(x))
+float exp_approx(float val);
+float log_approx(float val);
+float pow_approx(float a, float b);
 #else
 #define sin_approx(x)   sinf(x)
 #define cos_approx(x)   cosf(x)
 #define atan2_approx(y,x)   atan2f(y,x)
 #define acos_approx(x)      acosf(x)
 #define tan_approx(x)       tanf(x)
+#define exp_approx(x)       expf(x)
+#define log_approx(x)       logf(x)
+#define pow_approx(a, b)    powf(b, a)
 #endif
 
 void arraySubInt32(int32_t *dest, int32_t *array1, int32_t *array2, int count);
@@ -150,3 +166,29 @@ static inline float constrainf(float amt, float low, float high)
     else
         return amt;
 }
+
+// quaternions
+typedef struct {
+    float w,x,y,z;
+} quaternion;
+#define QUATERNION_INITIALIZE   {.w=1, .x=0, .y=0,.z=0}
+#define VECTOR_INITIALIZE       {.w=0, .x=0, .y=0,.z=0}
+
+typedef struct {
+    float ww,wx,wy,wz,xx,xy,xz,yy,yz,zz;
+} quaternionProducts;
+#define QUATERNION_PRODUCTS_INITIALIZE  {.ww=1, .wx=0, .wy=0, .wz=0, .xx=0, .xy=0, .xz=0, .yy=0, .yz=0, .zz=0}
+
+void quaternionComputeProducts(quaternion *qIn, quaternionProducts *qPout);
+void quaternionTransformVectorBodyToEarth(quaternion *qVector, quaternion *qReference);
+void quaternionTransformVectorEarthToBody(quaternion *qVector, quaternion *qReference);
+void quaternionMultiply(quaternion *l, quaternion *r, quaternion *o);
+void quaternionNormalize(quaternion *q);
+void quaternionAdd(quaternion *l, quaternion *r, quaternion *o);
+void quaternionCopy(quaternion *s, quaternion *d);
+void quaternionConjugate(quaternion *i, quaternion *o);
+float quaternionDotProduct(quaternion *l, quaternion *r);
+float quaternionNorm(quaternion *q);
+float quaternionModulus(quaternion *q);
+void quaternionInitQuaternion(quaternion *i);
+void quaternionInitVector(quaternion *i);

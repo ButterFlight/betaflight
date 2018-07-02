@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 /* Created by jflyper */
@@ -53,12 +56,12 @@
 #define SMARTAUDIO_POLLING_INTERVAL  150    // Minimum time between state polling
 #define SMARTAUDIO_POLLING_WINDOW   1000    // Time window after command polling for state change
 
-//#define SMARTAUDIO_DPRINTF
-//#define SMARTAUDIO_DEBUG_MONITOR
+//#define USE_SMARTAUDIO_DPRINTF
+//#define DPRINTF_SERIAL_PORT SERIAL_PORT_USART1
 
-#ifdef SMARTAUDIO_DPRINTF
+#ifdef USE_SMARTAUDIO_DPRINTF
 serialPort_t *debugSerialPort = NULL;
-#endif // SMARTAUDIO_DPRINTF
+#endif // USE_SMARTAUDIO_DPRINTF
 
 static serialPort_t *smartAudioSerialPort = NULL;
 
@@ -179,7 +182,7 @@ static uint8_t CRC8(const uint8_t *data, const int8_t len)
 }
 
 
-#ifdef SMARTAUDIO_DPRINTF
+#ifdef USE_SMARTAUDIO_DPRINTF
 static void saPrintSettings(void)
 {
     dprintf(("Current status: version: %d\r\n", saDevice.version));
@@ -289,12 +292,10 @@ static void saProcessResponse(uint8_t *buf, int len)
         saDevice.mode = buf[4];
         saDevice.freq = (buf[5] << 8)|buf[6];
 
-#ifdef SMARTAUDIO_DEBUG_MONITOR
-        debug[0] = saDevice.version * 100 + saDevice.mode;
-        debug[1] = saDevice.channel;
-        debug[2] = saDevice.freq;
-        debug[3] = saDevice.power;
-#endif
+        DEBUG_SET(DEBUG_SMARTAUDIO, 0, saDevice.version * 100 + saDevice.mode);
+        DEBUG_SET(DEBUG_SMARTAUDIO, 1, saDevice.channel);
+        DEBUG_SET(DEBUG_SMARTAUDIO, 2, saDevice.freq);
+        DEBUG_SET(DEBUG_SMARTAUDIO, 3, saDevice.power);
         break;
 
     case SA_CMD_SET_POWER: // Set Power
@@ -335,7 +336,7 @@ static void saProcessResponse(uint8_t *buf, int len)
 #ifdef USE_CMS    //if changes then trigger saCms update
         saCmsResetOpmodel();
 #endif
-#ifdef SMARTAUDIO_DPRINTF    // Debug
+#ifdef USE_SMARTAUDIO_DPRINTF    // Debug
         saPrintSettings();
 #endif
     }
@@ -512,17 +513,6 @@ static saCmdQueue_t sa_akk_mach2_queue[SA_AKK_MACH2_QSIZE];
 static uint8_t sa_qhead = 0;
 static uint8_t sa_qtail = 0;
 
-#ifdef DPRINTF_SMARTAUDIO
-static int saQueueLength(void)
-{
-    if (sa_qhead >= sa_qtail) {
-        return sa_qhead - sa_qtail;
-    } else {
-        return SA_QSIZE + sa_qhead - sa_qtail;
-    }
-}
-#endif
-
 static bool saQueueEmpty(void)
 {
     return sa_qhead == sa_qtail;
@@ -694,7 +684,7 @@ void saSetPowerByIndex(uint8_t index)
 
 bool vtxSmartAudioInit(void)
 {
-#ifdef SMARTAUDIO_DPRINTF
+#ifdef USE_SMARTAUDIO_DPRINTF
     // Setup debugSerialPort
 
     debugSerialPort = openSerialPort(DPRINTF_SERIAL_PORT, FUNCTION_NONE, NULL, NULL, 115200, MODE_RXTX, 0);

@@ -1,16 +1,21 @@
 /*
- * This is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This file is part of Cleanflight and Betaflight.
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
+ *
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this software.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -30,7 +35,9 @@
 
 //LED & BEEPER------------------------------
 #define LED0_PIN                PE0
-#define BEEPER                  PD15
+
+#define USE_BEEPER
+#define BEEPER_PIN              PD15
 #define BEEPER_INVERTED
 
 //CAMERA CONTROL----------------------------
@@ -58,24 +65,53 @@
 #define USE_GYRO_SPI_MPU6000
 //#define MPU_INT_EXTI            PD0
 
-#if defined(OMNIBUSF7V2) || defined(FPVM_BETAFLIGHTF7)
+#if defined(OMNIBUSF7V2)
+#define MPU6000_CS_PIN          SPI1_NSS_PIN
+#define MPU6000_SPI_INSTANCE    SPI1
+#define MPU6500_CS_PIN          SPI3_NSS_PIN
+#define MPU6500_SPI_INSTANCE    SPI3
+#define GYRO_1_CS_PIN           MPU6500_CS_PIN
+#define GYRO_2_CS_PIN           MPU6000_CS_PIN
+#define GYRO_MPU6500_ALIGN      CW90_DEG
+#define ACC_MPU6500_ALIGN       CW90_DEG
+#define GYRO_MPU6000_ALIGN      ALIGN_DEFAULT
+#define ACC_MPU6000_ALIGN       ALIGN_DEFAULT
+#define ACC_1_ALIGN             ACC_MPU6500_ALIGN
+#define ACC_2_ALIGN             ACC_MPU6000_ALIGN
+#define GYRO_1_ALIGN            GYRO_MPU6500_ALIGN
+#define GYRO_2_ALIGN            GYRO_MPU6000_ALIGN
+#define GYRO_1_SPI_INSTANCE     MPU6500_SPI_INSTANCE
+#define GYRO_2_SPI_INSTANCE     MPU6000_SPI_INSTANCE
+#elif defined(FPVM_BETAFLIGHTF7)
 #define MPU6000_CS_PIN          SPI1_NSS_PIN
 #define MPU6000_SPI_INSTANCE    SPI1
 #define MPU6500_CS_PIN          SPI3_NSS_PIN
 #define MPU6500_SPI_INSTANCE    SPI3
 #define GYRO_1_CS_PIN           MPU6000_CS_PIN
-#define GYRO_0_CS_PIN           MPU6500_CS_PIN
-#define GYRO_MPU6500_ALIGN      CW90_DEG
-#define ACC_MPU6500_ALIGN       CW90_DEG
+#define GYRO_2_CS_PIN           MPU6500_CS_PIN
+#define GYRO_MPU6500_ALIGN      CW270_DEG
+#define ACC_MPU6500_ALIGN       CW270_DEG
 #define GYRO_MPU6000_ALIGN      CW90_DEG
 #define ACC_MPU6000_ALIGN       CW90_DEG
+#define ACC_1_ALIGN             ACC_MPU6000_ALIGN
+#define ACC_2_ALIGN             ACC_MPU6500_ALIGN
+#define GYRO_1_ALIGN            GYRO_MPU6000_ALIGN
+#define GYRO_2_ALIGN            GYRO_MPU6500_ALIGN
+#define GYRO_1_SPI_INSTANCE     MPU6000_SPI_INSTANCE
+#define GYRO_2_SPI_INSTANCE     MPU6500_SPI_INSTANCE
 #else
 #define MPU6000_CS_PIN          SPI3_NSS_PIN
 #define MPU6000_SPI_INSTANCE    SPI3
 #define MPU6500_CS_PIN          SPI1_NSS_PIN
 #define MPU6500_SPI_INSTANCE    SPI1
-#define GYRO_0_CS_PIN           MPU6000_CS_PIN
-#define GYRO_1_CS_PIN           MPU6500_CS_PIN
+#define GYRO_1_CS_PIN           MPU6000_CS_PIN
+#define GYRO_2_CS_PIN           MPU6500_CS_PIN
+#define ACC_1_ALIGN             ALIGN_DEFAULT
+#define ACC_2_ALIGN             ALIGN_DEFAULT
+#define GYRO_1_ALIGN            ALIGN_DEFAULT
+#define GYRO_2_ALIGN            ALIGN_DEFAULT
+#define GYRO_1_SPI_INSTANCE     MPU6000_SPI_INSTANCE
+#define GYRO_2_SPI_INSTANCE     MPU6500_SPI_INSTANCE
 #endif
 
 // TODO: dual gyro support
@@ -84,7 +120,8 @@
 
 //UARTS-------------------------------------
 #define USE_VCP
-#define VBUS_SENSING_PIN        PC4
+#define USE_USB_DETECT
+#define USB_DETECT_PIN          PC4
 
 #define USE_UART1
 #define UART1_RX_PIN            PA10
@@ -92,7 +129,11 @@
 
 //#define AVOID_UART2_FOR_PWM_PPM // PPM is not working on RC pin anyway
 #define USE_UART2
+#if defined (FPVM_BETAFLIGHTF7)
+#define UART2_TX_PIN            PA2
+#else
 #define UART2_TX_PIN            NONE
+#endif
 #define UART2_RX_PIN            PA3
 
 // Assigned to shared output I2C2
@@ -157,8 +198,8 @@
 
 #ifdef FPVM_BETAFLIGHTF7
 //FLASH--------------------------------------
-#define M25P16_CS_PIN        SPI4_NSS_PIN
-#define M25P16_SPI_INSTANCE  SPI4
+#define FLASH_CS_PIN         SPI4_NSS_PIN
+#define FLASH_SPI_INSTANCE   SPI4
 
 #define USE_FLASHFS
 #define USE_FLASH_M25P16
@@ -198,6 +239,7 @@
 
 #define USE_MAG
 #define USE_MAG_HMC5883
+#define USE_MAG_QMC5883
 
 #define SENSORS_SET (SENSOR_ACC | SENSOR_BARO)
 //ADC---------------------------------------
@@ -235,9 +277,9 @@
 #define TARGET_IO_PORTE 0xffff
 
 #ifdef FPVM_BETAFLIGHTF7
-#define USABLE_TIMER_CHANNEL_COUNT 12
+#define USABLE_TIMER_CHANNEL_COUNT 13
 #else
-#define USABLE_TIMER_CHANNEL_COUNT 11
+#define USABLE_TIMER_CHANNEL_COUNT 12
 #endif
 
 #define USED_TIMERS  ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(8) | TIM_N(9) )

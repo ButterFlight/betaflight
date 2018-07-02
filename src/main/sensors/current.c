@@ -1,26 +1,30 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "stdbool.h"
 #include "stdint.h"
 #include "string.h"
 
-#include <platform.h>
+#include "platform.h"
 #include "build/build_config.h"
+#include "build/debug.h"
 
 #include "common/maths.h"
 #include "common/utils.h"
@@ -113,6 +117,9 @@ static int32_t currentMeterADCToCentiamps(const uint16_t src)
     // y=x/m+b m is scale in (mV/10A) and b is offset in (mA)
     int32_t centiAmps = (millivolts * 10000 / (int32_t)config->scale + (int32_t)config->offset) / 10;
 
+    DEBUG_SET(DEBUG_CURRENT, 0, millivolts);
+    DEBUG_SET(DEBUG_CURRENT, 1, centiAmps);
+
     return centiAmps; // Returns Centiamps to maintain compatability with the rest of the code
 }
 
@@ -158,6 +165,9 @@ void currentMeterADCRead(currentMeter_t *meter)
     meter->amperageLatest = currentMeterADCState.amperageLatest;
     meter->amperage = currentMeterADCState.amperage;
     meter->mAhDrawn = currentMeterADCState.mahDrawnState.mAhDrawn;
+
+    DEBUG_SET(DEBUG_CURRENT, 2, meter->amperageLatest);
+    DEBUG_SET(DEBUG_CURRENT, 3, meter->mAhDrawn);
 }
 
 //
@@ -211,9 +221,9 @@ void currentMeterESCRefresh(int32_t lastUpdateAt)
     UNUSED(lastUpdateAt);
 
     escSensorData_t *escData = getEscSensorData(ESC_SENSOR_COMBINED);
-    if (escData->dataAge <= ESC_BATTERY_AGE_MAX) {
-        currentMeterESCState.amperage = escData->current;
-        currentMeterESCState.mAhDrawn = escData->consumption;
+    if (escData && escData->dataAge <= ESC_BATTERY_AGE_MAX) {
+        currentMeterESCState.amperage = escData->current + escSensorConfig()->offset / 10;
+        currentMeterESCState.mAhDrawn = escData->consumption + escSensorConfig()->offset * millis() / (1000.0f * 3600);
     } else {
         currentMeterESCState.amperage = 0;
         currentMeterESCState.mAhDrawn = 0;

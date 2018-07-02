@@ -16,6 +16,7 @@
  */
 
 #include <stdbool.h>
+#include <string.h>
 #include <stdint.h>
 #include <math.h>
 
@@ -39,6 +40,7 @@
 
 #include "flight/failsafe.h"
 #include "flight/imu.h"
+#include "flight/gps_rescue.h"
 #include "flight/pid.h"
 #include "rx/rx.h"
 
@@ -46,9 +48,14 @@
 
 #include "sensors/battery.h"
 
+#ifdef USE_GYRO_IMUF9001
+    volatile bool isSetpointNew;
+#endif
+
 typedef float (applyRatesFn)(const int axis, float rcCommandf, const float rcCommandfAbs);
 
 static float setpointRate[3], rcDeflection[3], rcDeflectionAbs[3];
+static uint32_t setpointRateInt[3];
 static float throttlePIDAttenuation;
 static bool reverseMotors = false;
 static applyRatesFn *applyRates;
@@ -57,7 +64,6 @@ static float rcStepSize[4] = { 0, 0, 0, 0 };
 static float inverseRcInt;
 static uint8_t interpolationChannels;
 volatile bool isRXDataNew;
-volatile bool skipNextInterpolate;
 volatile int16_t rcInterpolationStepCount;
 volatile uint16_t rxRefreshRate;
 volatile uint16_t currentRxRefreshRate;
@@ -65,6 +71,11 @@ volatile uint16_t currentRxRefreshRate;
 float getSetpointRate(int axis)
 {
     return setpointRate[axis];
+}
+
+uint32_t getSetpointRateInt(int axis)
+{
+    return setpointRateInt[axis];
 }
 
 float getRcDeflection(int axis)
@@ -128,17 +139,32 @@ float applyRaceFlightRates(const int axis, float rcCommandf, const float rcComma
 
 static void calculateSetpointRate(int axis)
 {
-    // scale rcCommandf to range [-1.0, 1.0]
-    float rcCommandf = rcCommand[axis] / 500.0f;
-    rcDeflection[axis] = rcCommandf;
-    const float rcCommandfAbs = ABS(rcCommandf);
-    rcDeflectionAbs[axis] = rcCommandfAbs;
+    float angleRate;
+    
+#ifdef USE_GPS_RESCUE
+    if ((axis == FD_YAW) && FLIGHT_MODE(GPS_RESCUE_MODE)) {
+        // If GPS Rescue is active then override the setpointRate used in the
+        // pid controller with the value calculated from the desired heading logic.
+        angleRate = gpsRescueGetYawRate();
 
-    float angleRate = applyRates(axis, rcCommandf, rcCommandfAbs);
+        // Treat the stick input as centered to avoid any stick deflection base modifications (like acceleration limit)
+        rcDeflection[axis] = 0;
+        rcDeflectionAbs[axis] = 0;
+    } else
+#endif
+    {
+        // scale rcCommandf to range [-1.0, 1.0]
+        float rcCommandf = rcCommand[axis] / 500.0f;
+        rcDeflection[axis] = rcCommandf;
+        const float rcCommandfAbs = ABS(rcCommandf);
+        rcDeflectionAbs[axis] = rcCommandfAbs;
+
+        angleRate = applyRates(axis, rcCommandf, rcCommandfAbs);
+    }
+    setpointRate[axis] = constrainf(angleRate, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT); // Rate limit protection (deg/sec)
 
     DEBUG_SET(DEBUG_ANGLERATE, axis, angleRate);
-
-    setpointRate[axis] = constrainf(angleRate, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT); // Rate limit protection (deg/sec)
+    memcpy((uint32_t*)&setpointRateInt[axis], (uint32_t*)&setpointRate[axis], sizeof(float));
 }
 
 static void scaleRcCommandToFpvCamAngle(void)
@@ -190,12 +216,6 @@ static void checkForThrottleErrorResetState(void)
 
 void processRcCommand(void)
 {
-    if (skipNextInterpolate && !isRXDataNew) {
-        skipNextInterpolate = false;
-        return;
-    }
-    skipNextInterpolate = targetPidLooptime < 62;
-
     int updatedChannel = 0;
     if (isRXDataNew && isAntiGravityModeActive()) {
         checkForThrottleErrorResetState();
@@ -203,26 +223,10 @@ void processRcCommand(void)
 
     if (rxConfig()->rcInterpolation) {
         if (isRXDataNew) {
-            if (debugMode == DEBUG_RC_INTERPOLATION) {
-                debug[0] = lrintf(rcCommand[0]);
-                debug[1] = lrintf(getTaskDeltaTime(TASK_RX) / 1000);
-            }
+            DEBUG_SET(DEBUG_RC_INTERPOLATION, 0, lrintf(rcCommand[0]));
+            DEBUG_SET(DEBUG_RC_INTERPOLATION, 1, lrintf(getTaskDeltaTime(TASK_RX) / 1000));
 
-             // Set RC refresh rate for sampling and channels to filter
-            switch (rxConfig()->rcInterpolation) {
-                case RC_SMOOTHING_AUTO:
-                    rxRefreshRate = currentRxRefreshRate + 1000; // Add slight overhead to prevent ramps
-                    break;
-                case RC_SMOOTHING_MANUAL:
-                    rxRefreshRate = 1000 * rxConfig()->rcInterpolationInterval;
-                    break;
-                case RC_SMOOTHING_OFF:
-                case RC_SMOOTHING_DEFAULT:
-                default:
-                    rxRefreshRate = rxGetRefreshRate();
-            }
-
-            rcInterpolationStepCount = rxRefreshRate / targetPidLooptime;
+            rcInterpolationStepCount = rxRefreshRate / RC_INTERP_LOOPTIME;
             inverseRcInt = 1.0f / (float)rcInterpolationStepCount;
 
             for (int channel = ROLL; channel < interpolationChannels; channel++) {
@@ -243,26 +247,28 @@ void processRcCommand(void)
         rcInterpolationStepCount = 0; // reset factor in case of level modes flip flopping
     }
 
+     DEBUG_SET(DEBUG_RC_INTERPOLATION, 2, rcInterpolationStepCount);
+
+
     if (isRXDataNew || updatedChannel) {
         const uint8_t maxUpdatedAxis = isRXDataNew ? FD_YAW : MIN(updatedChannel, FD_YAW); // throttle channel doesn't require rate calculation
-#if defined(SITL)
+#if defined(SIMULATOR_BUILD)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunsafe-loop-optimizations"
 #endif
         for (int axis = FD_ROLL; axis <= maxUpdatedAxis; axis++) {
-#if defined(SITL)
+#if defined(SIMULATOR_BUILD)
 #pragma GCC diagnostic pop
 #endif
             calculateSetpointRate(axis);
         }
 
-        if (debugMode == DEBUG_RC_INTERPOLATION) {
-            debug[2] = rcInterpolationStepCount;
-            debug[3] = setpointRate[0];
-        }
-
+        DEBUG_SET(DEBUG_RC_INTERPOLATION, 3, setpointRate[0]);
+        #ifdef USE_GYRO_IMUF9001
+        isSetpointNew = 1;
+        #endif
         // Scaling of AngleRate to camera angle (Mixing Roll and Yaw)
-        if (rxConfig()->fpvCamAngleDegrees && IS_RC_MODE_ACTIVE(BOXFPVANGLEMIX) && !FLIGHT_MODE(HEADFREE_MODE)) {
+        if (IS_RC_MODE_ACTIVE(BOXFPVANGLEMIX) && !FLIGHT_MODE(HEADFREE_MODE) && rxConfig()->fpvCamAngleDegrees) {
             scaleRcCommandToFpvCamAngle();
         }
     }
@@ -272,7 +278,7 @@ void processRcCommand(void)
     }
 }
 
-void updateRcCommands(void)
+FAST_CODE void updateRcCommands(void)
 {
     isRXDataNew = true;
     // PITCH & ROLL only dynamic PID adjustment,  depending on throttle value
@@ -317,15 +323,13 @@ void updateRcCommands(void)
     if (feature(FEATURE_3D)) {
         tmp = constrain(rcData[THROTTLE], PWM_RANGE_MIN, PWM_RANGE_MAX);
         tmp = (uint32_t)(tmp - PWM_RANGE_MIN);
-        if (getLowVoltageCutoff()->enabled) {
-            tmp = tmp * getLowVoltageCutoff()->percentage / 100;
-        }
     } else {
         tmp = constrain(rcData[THROTTLE], rxConfig()->mincheck, PWM_RANGE_MAX);
         tmp = (uint32_t)(tmp - rxConfig()->mincheck) * PWM_RANGE_MIN / (PWM_RANGE_MAX - rxConfig()->mincheck);
-        if (getLowVoltageCutoff()->enabled) {
-            tmp = tmp * getLowVoltageCutoff()->percentage / 100;
-        }
+    }
+
+    if (getLowVoltageCutoff()->enabled) {
+        tmp = tmp * getLowVoltageCutoff()->percentage / 100;
     }
 
     rcCommand[THROTTLE] = rcLookupThrottle(tmp);
@@ -353,7 +357,7 @@ void updateRcCommands(void)
 
         rcCommandBuff.X = rcCommand[ROLL];
         rcCommandBuff.Y = rcCommand[PITCH];
-        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)))) {
+        if ((!FLIGHT_MODE(ANGLE_MODE) && (!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
             rcCommandBuff.Z = rcCommand[YAW];
         } else {
             rcCommandBuff.Z = 0;
@@ -361,7 +365,7 @@ void updateRcCommands(void)
         imuQuaternionHeadfreeTransformVectorEarthToBody(&rcCommandBuff);
         rcCommand[ROLL] = rcCommandBuff.X;
         rcCommand[PITCH] = rcCommandBuff.Y;
-        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)))) {
+        if ((!FLIGHT_MODE(ANGLE_MODE)&&(!FLIGHT_MODE(HORIZON_MODE)) && (!FLIGHT_MODE(GPS_RESCUE_MODE)))) {
             rcCommand[YAW] = rcCommandBuff.Z;
         }
     }
@@ -402,5 +406,19 @@ void initRcProcessing(void)
 
         break;
     }
+    // Set RC refresh rate for sampling and channels to filter
+    switch (rxConfig()->rcInterpolation) {
+        case RC_SMOOTHING_AUTO:
+            rxRefreshRate = currentRxRefreshRate + 1000; // Add slight overhead to prevent ramps
+            break;
+        case RC_SMOOTHING_MANUAL:
+            rxRefreshRate = 1000 * rxConfig()->rcInterpolationInterval;
+            break;
+        case RC_SMOOTHING_OFF:
+        case RC_SMOOTHING_DEFAULT:
+        default:
+            rxRefreshRate = rxGetRefreshRate();
+    }
+
     interpolationChannels = rxConfig()->rcInterpolationChannels + 2; //"RP", "RPY", "RPYT"
 }

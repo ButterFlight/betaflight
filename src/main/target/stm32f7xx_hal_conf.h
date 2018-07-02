@@ -54,7 +54,7 @@
 /* #define HAL_CEC_MODULE_ENABLED   */
 /* #define HAL_CRC_MODULE_ENABLED   */
 /* #define HAL_CRYP_MODULE_ENABLED   */
-/* #define HAL_DAC_MODULE_ENABLED   */
+#define HAL_DAC_MODULE_ENABLED
 /* #define HAL_DCMI_MODULE_ENABLED   */
 /* #define HAL_DMA2D_MODULE_ENABLED   */
 /* #define HAL_ETH_MODULE_ENABLED   */
@@ -158,10 +158,13 @@
 #define  VDD_VALUE                    ((uint32_t)3300U) /*!< Value of VDD in mv */
 #define  TICK_INT_PRIORITY            ((uint32_t)0U)    /*!< tick interrupt priority */
 #define  USE_RTOS                     0U
+/* @todo to save a bit of power, ART and ART Prefetch should only be enabled
+  when running from ITCM-FLASH, while the instruction cache - only when running
+  from AXIM-FLASH */
 #define  PREFETCH_ENABLE              1U
 #define  ART_ACCLERATOR_ENABLE        1U /* To enable instruction cache and prefetch */
 #define  INSTRUCTION_CACHE_ENABLE     1U
-#define  DATA_CACHE_ENABLE            0U
+#define  DATA_CACHE_ENABLE            1U
 
 /* ########################## Assert Selection ############################## */
 /**

@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -86,7 +89,11 @@ void osdSlaveWrite(const uint8_t x, const uint8_t y, const char *s)
 void osdSlaveHeartbeat(void)
 {
     timeoutAt = micros() + (1000 * 1000);
-    stalled = false;
+    if (stalled) {
+        stalled = false;
+
+        displayResync(osdDisplayPort);
+    }
 }
 
 void osdSlaveInit(displayPort_t *osdDisplayPortToUse)
@@ -96,7 +103,12 @@ void osdSlaveInit(displayPort_t *osdDisplayPortToUse)
 
     osdDisplayPort = osdDisplayPortToUse;
 
+    delay(100); // need max7456 to be ready before using the displayPort API further.
+
     displayClearScreen(osdDisplayPort);
+    displayResync(osdDisplayPort);
+
+    delay(100); // wait a little for video to stabilise
 
     osdDrawLogo(3, 1);
 
@@ -106,8 +118,6 @@ void osdSlaveInit(displayPort_t *osdDisplayPortToUse)
     displayWrite(osdDisplayPort, 13, 6, "OSD");
 
     displayResync(osdDisplayPort);
-
-    displayDrawScreenQueued = true;
 }
 
 bool osdSlaveCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
@@ -122,7 +132,12 @@ bool osdSlaveCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
         displayResync(osdDisplayPort);
     }
 
-    return receivingScreen || displayDrawScreenQueued || stalled;
+    if (!receivingScreen && !displayIsSynced(osdDisplayPort)) {
+        // queue a screen draw to ensure any remaining characters not written to the screen yet
+        // remember that displayDrawScreen() may return WITHOUT having fully updated the screen.
+        displayDrawScreenQueued = true;
+    }
+    return receivingScreen || displayDrawScreenQueued;
 }
 
 /*
@@ -147,7 +162,7 @@ void osdSlaveUpdate(timeUs_t currentTimeUs)
     }
 #endif
 
-    if (displayDrawScreenQueued || stalled) {
+    if (displayDrawScreenQueued) {
         displayDrawScreen(osdDisplayPort);
         displayDrawScreenQueued = false;
         receivingScreen = false;

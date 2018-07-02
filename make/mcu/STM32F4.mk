@@ -19,7 +19,7 @@ STDPERIPH_DIR   = $(ROOT)/lib/main/STM32F4/Drivers/STM32F4xx_HAL_Driver
 STDPERIPH_SRC   = $(notdir $(wildcard $(STDPERIPH_DIR)/Src/*.c))
 EXCLUDES        =
 else
-CMSIS_DIR      := $(ROOT)/lib/main/CMSIS/CM4
+CMSIS_DIR      := $(ROOT)/lib/main/CMSIS
 STDPERIPH_DIR   = $(ROOT)/lib/main/STM32F4/Drivers/STM32F4xx_StdPeriph_Driver
 STDPERIPH_SRC   = $(notdir $(wildcard $(STDPERIPH_DIR)/src/*.c))
 EXCLUDES        = stm32f4xx_crc.c \
@@ -89,6 +89,10 @@ USBCDC_DIR  = $(ROOT)/lib/main/STM32_USB_Device_Library/Class/cdc
 USBCDC_SRC  = $(notdir $(wildcard $(USBCDC_DIR)/src/*.c))
 EXCLUDES    = usbd_cdc_if_template.c
 USBCDC_SRC  := $(filter-out ${EXCLUDES}, $(USBCDC_SRC))
+USBMSC_DIR  = $(ROOT)/lib/main/STM32_USB_Device_Library/Class/msc
+USBMSC_SRC  = $(notdir $(wildcard $(USBMSC_DIR)/src/*.c))
+EXCLUDES    = usbd_storage_template.c
+USBMSC_SRC  := $(filter-out ${EXCLUDES}, $(USBMSC_SRC))
 USBHID_DIR  = $(ROOT)/lib/main/STM32_USB_Device_Library/Class/hid
 USBHID_SRC  = $(notdir $(wildcard $(USBHID_DIR)/src/*.c))
 USBWRAPPER_DIR  = $(ROOT)/lib/main/STM32_USB_Device_Library/Class/hid_cdc_wrapper
@@ -98,14 +102,14 @@ VPATH       := $(VPATH):$(USBOTG_DIR)/src:$(USBCORE_DIR)/src:$(USBCDC_DIR)/src:$
 DEVICE_STDPERIPH_SRC := $(STDPERIPH_SRC) \
                         $(USBOTG_SRC) \
                         $(USBCORE_SRC) \
+                        $(USBCDC_SRC) \
                         $(USBHID_SRC) \
                         $(USBWRAPPER_SRC) \
-                        $(USBCDC_SRC)
+                        $(USBMSC_SRC)
 endif
 
 #CMSIS
-VPATH           := $(VPATH):$(CMSIS_DIR)/CoreSupport:$(CMSIS_DIR)/DeviceSupport/ST/STM32F4xx
-VPATH           := $(VPATH):$(CMSIS_DIR)/Core:$(CMSIS_DIR)/Device/ST/STM32F4xx
+VPATH           := $(VPATH):$(CMSIS_DIR)/Core/Include:$(ROOT)/lib/main/STM32F4/Drivers/CMSIS/Device/ST/STM32F4xx
 
 ifeq ($(PERIPH_DRIVER), HAL)
 CMSIS_SRC       :=
@@ -117,8 +121,8 @@ INCLUDE_DIRS    := $(INCLUDE_DIRS) \
                    $(CMSIS_DIR)/Device/ST/STM32F4xx/Include \
                    $(ROOT)/src/main/vcp_hal
 else
-CMSIS_SRC       := $(notdir $(wildcard $(CMSIS_DIR)/CM4/CoreSupport/*.c \
-                   $(CMSIS_DIR)/CM4/DeviceSupport/ST/STM32F4xx/*.c))
+CMSIS_SRC       := $(notdir $(wildcard $(CMSIS_DIR)/CoreSupport/*.c \
+                   $(ROOT)/lib/main/STM32F4/Drivers/CMSIS/Device/ST/STM32F4xx/*.c))
 INCLUDE_DIRS    := $(INCLUDE_DIRS) \
                    $(STDPERIPH_DIR)/inc \
                    $(USBOTG_DIR)/inc \
@@ -126,11 +130,10 @@ INCLUDE_DIRS    := $(INCLUDE_DIRS) \
                    $(USBCDC_DIR)/inc \
                    $(USBHID_DIR)/inc \
                    $(USBWRAPPER_DIR)/inc \
+                   $(USBMSC_DIR)/inc \
                    $(USBFS_DIR)/inc \
-                   $(CMSIS_DIR)/CoreSupport \
-                   $(CMSIS_DIR)/Include \
-                   $(CMSIS_DIR)/DeviceSupport/ST/STM32F4xx \
-                   $(CMSIS_DIR)/Device/ST/STM32F4xx/Include \
+                   $(CMSIS_DIR)/Core/Include \
+                   $(ROOT)/lib/main/STM32F4/Drivers/CMSIS/Device/ST/STM32F4xx \
                    $(ROOT)/src/main/vcpf4
 endif
 
@@ -169,6 +172,7 @@ MCU_COMMON_SRC = \
             drivers/dma_stm32f4xx.c \
             drivers/inverter.c \
             drivers/light_ws2811strip_stdperiph.c \
+            drivers/transponder_ir_io_stdperiph.c \
             drivers/pwm_output_dshot.c \
             drivers/serial_uart_init.c \
             drivers/serial_uart_stm32f4xx.c \
@@ -193,5 +197,29 @@ VCP_SRC = \
             drivers/usb_io.c
 endif
 
-DSP_LIB := $(ROOT)/lib/main/DSP_Lib
+MSC_SRC = \
+            drivers/usb_msc_f4xx.c \
+            msc/usbd_msc_desc.c \
+            msc/usbd_storage.c
+
+ifneq ($(filter SDCARD,$(FEATURES)),)
+MSC_SRC += \
+            msc/usbd_storage_sd_spi.c
+endif
+
+ifneq ($(filter SDIO,$(FEATURES)),)
+MSC_SRC += \
+            msc/usbd_storage_sdio.c
+MCU_COMMON_SRC += \
+            drivers/sdio_f4xx.c
+endif
+
+ifneq ($(filter ONBOARDFLASH,$(FEATURES)),)
+MSC_SRC += \
+            msc/usbd_storage_emfat.c \
+            msc/emfat.c \
+            msc/emfat_file.c
+endif
+
+DSP_LIB := $(ROOT)/lib/main/CMSIS/DSP
 DEVICE_FLAGS += -DARM_MATH_MATRIX_CHECK -DARM_MATH_ROUNDING -D__FPU_PRESENT=1 -DUNALIGNED_SUPPORT_DISABLE -DARM_MATH_CM4

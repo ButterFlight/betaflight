@@ -1,23 +1,27 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 #include "platform.h"
 
@@ -48,7 +52,7 @@
 #include "drivers/compass/compass.h"
 #include "drivers/dma.h"
 #include "drivers/exti.h"
-#include "drivers/flash_m25p16.h"
+#include "drivers/flash.h"
 #include "drivers/inverter.h"
 #include "drivers/io.h"
 #include "drivers/light_led.h"
@@ -70,10 +74,18 @@
 #include "drivers/usb_io.h"
 #include "drivers/vtx_rtc6705.h"
 #include "drivers/vtx_common.h"
+#ifdef USE_USB_MSC
+#include "drivers/usb_msc.h"
+#endif
 #ifdef USE_DMA_SPI_DEVICE
 #include "drivers/dma_spi.h"
 #endif //USE_DMA_SPI_DEVICE
 
+#ifdef USE_GYRO_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif //USE_GYRO_IMUF9001
+
+#include "fc/board_info.h"
 #include "fc/config.h"
 #include "fc/fc_init.h"
 #include "fc/fc_tasks.h"
@@ -86,6 +98,7 @@
 #include "msp/msp_serial.h"
 
 #include "pg/adc.h"
+#include "pg/beeper.h"
 #include "pg/beeper_dev.h"
 #include "pg/bus_i2c.h"
 #include "pg/bus_spi.h"
@@ -93,6 +106,8 @@
 #include "pg/pinio.h"
 #include "pg/piniobox.h"
 #include "pg/pg.h"
+#include "pg/rx.h"
+#include "pg/rx_spi.h"
 #include "pg/rx_pwm.h"
 #include "pg/sdcard.h"
 #include "pg/vcd.h"
@@ -103,8 +118,8 @@
 
 #include "io/beeper.h"
 #include "io/displayport_max7456.h"
-#include "io/displayport_rcdevice.h"
 #include "io/displayport_srxl.h"
+#include "io/displayport_crsf.h"
 #include "io/serial.h"
 #include "io/flashfs.h"
 #include "io/gps.h"
@@ -117,6 +132,7 @@
 #include "io/transponder_ir.h"
 #include "io/osd.h"
 #include "io/osd_slave.h"
+#include "io/pidaudio.h"
 #include "io/piniobox.h"
 #include "io/displayport_msp.h"
 #include "io/vtx.h"
@@ -142,7 +158,6 @@
 #include "flight/failsafe.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
-#include "flight/navigation.h"
 #include "flight/pid.h"
 #include "flight/servos.h"
 
@@ -192,67 +207,6 @@ static IO_t busSwitchResetPin        = IO_NONE;
 }
 #endif
 
-#ifdef USE_SPI
-// Pre-initialize all CS pins to input with pull-up.
-// It's sad that we can't do this with an initialized array,
-// since we will be taking care of configurable CS pins shortly.
-
-void spiPreInit(void)
-{
-#ifdef USE_ACC_SPI_MPU6000
-    spiPreInitCs(IO_TAG(MPU6000_CS_PIN));
-#endif
-#ifdef USE_ACC_SPI_MPU6500
-    spiPreInitCs(IO_TAG(MPU6500_CS_PIN));
-#endif
-#ifdef USE_GYRO_SPI_MPU9250
-    spiPreInitCs(IO_TAG(MPU9250_CS_PIN));
-#endif
-#ifdef USE_GYRO_SPI_ICM20649
-    spiPreInitCs(IO_TAG(ICM20649_CS_PIN));
-#endif
-#ifdef USE_GYRO_SPI_ICM20689
-    spiPreInitCs(IO_TAG(ICM20689_CS_PIN));
-#endif
-#ifdef USE_ACCGYRO_BMI160
-    spiPreInitCs(IO_TAG(BMI160_CS_PIN));
-#endif
-#ifdef USE_GYRO_L3GD20
-    spiPreInitCs(IO_TAG(L3GD20_CS_PIN));
-#endif
-#ifdef USE_MAX7456
-    spiPreInitCsOutPU(IO_TAG(MAX7456_SPI_CS_PIN)); // XXX 3.2 workaround for Kakute F4. See comment for spiPreInitCSOutPU.
-#endif
-#ifdef USE_SDCARD 
-    spiPreInitCs(sdcardConfig()->chipSelectTag);
-#endif
-#ifdef USE_BARO_SPI_BMP280
-    spiPreInitCs(IO_TAG(BMP280_CS_PIN));
-#endif
-#ifdef USE_BARO_SPI_MS5611
-    spiPreInitCs(IO_TAG(MS5611_CS_PIN));
-#endif
-#ifdef USE_BARO_SPI_LPS
-    spiPreInitCs(IO_TAG(LPS_CS_PIN));
-#endif
-#ifdef USE_MAG_SPI_HMC5883
-    spiPreInitCs(IO_TAG(HMC5883_CS_PIN));
-#endif
-#ifdef USE_MAG_SPI_AK8963
-    spiPreInitCs(IO_TAG(AK8963_CS_PIN));
-#endif
-#if defined(USE_VTX_RTC6705)
-    spiPreInitCs(IO_TAG(RTC6705_CS_PIN));
-#endif
-#ifdef USE_FLASH_M25P16
-    spiPreInitCs(IO_TAG(M25P16_CS_PIN));
-#endif
-#if defined(USE_RX_SPI) && !defined(USE_RX_SOFTSPI)
-    spiPreInitCs(IO_TAG(RX_NSS_PIN));
-#endif
-}
-#endif
-
 void rebootUpdater(void)
 {
     #ifdef UPT_ADDRESS
@@ -292,10 +246,18 @@ void init(void)
 {
 #ifdef USE_ITCM_RAM
     /* Load functions into ITCM RAM */
-    extern unsigned char tcm_code_start;
-    extern unsigned char tcm_code_end;
-    extern unsigned char tcm_code;
-    memcpy(&tcm_code_start, &tcm_code, (int)(&tcm_code_end - &tcm_code_start));
+    extern uint8_t tcm_code_start;
+    extern uint8_t tcm_code_end;
+    extern uint8_t tcm_code;
+    memcpy(&tcm_code_start, &tcm_code, (size_t) (&tcm_code_end - &tcm_code_start));
+#endif
+
+#ifdef USE_FAST_RAM
+    /* Load FAST_RAM variable intializers into DTCM RAM */
+    extern uint8_t _sfastram_data;
+    extern uint8_t _efastram_data;
+    extern uint8_t _sfastram_idata;
+    memcpy(&_sfastram_data, &_sfastram_idata, (size_t) (&_efastram_data - &_sfastram_data));
 #endif
 
 #ifdef USE_HAL_DRIVER
@@ -305,6 +267,13 @@ void init(void)
     printfSupportInit();
 
     systemInit();
+
+#ifdef USE_GYRO_IMUF9001
+    if (isMPUSoftReset()) {
+        // reset imuf before befhal mucks with the pins
+        initImuf9001();
+    }
+#endif
 
     // initialize IO (needed for all IO operations)
     IOInitGlobal();
@@ -319,11 +288,15 @@ void init(void)
 
     initEEPROM();
 
-    ensureEEPROMContainsValidData();
-    readEEPROM();
+    ensureEEPROMStructureIsValid();
 
-    // !!TODO: Check to be removed when moving to generic targets
-    if (strncasecmp(systemConfig()->boardIdentifier, TARGET_BOARD_IDENTIFIER, sizeof(TARGET_BOARD_IDENTIFIER))) {
+    bool readSuccess = readEEPROM();
+
+#if defined(USE_BOARD_INFO)
+    initBoardInformation();
+#endif
+
+    if (!readSuccess || !isEEPROMVersionValid() || strncasecmp(systemConfig()->boardIdentifier, TARGET_BOARD_IDENTIFIER, sizeof(TARGET_BOARD_IDENTIFIER))) {
         resetEEPROM();
     }
 
@@ -428,7 +401,6 @@ void init(void)
         idlePulse = flight3DConfig()->neutral3d;
     }
     if (motorConfig()->dev.motorPwmProtocol == PWM_TYPE_BRUSHED) {
-        featureClear(FEATURE_3D);
         idlePulse = 0; // brushed motors
     }
     /* Motors needs to be initialized soon as posible because hardware initialization
@@ -449,11 +421,11 @@ void init(void)
     }
 #endif
 
-#ifdef BEEPER
+#ifdef USE_BEEPER
     beeperInit(beeperDevConfig());
 #endif
 /* temp until PGs are implemented. */
-#if defined(USE_INVERTER) && !defined(SITL)
+#if defined(USE_INVERTER) && !defined(SIMULATOR_BUILD)
     initInverters(serialPinConfig());
 #endif
 
@@ -462,7 +434,7 @@ void init(void)
 #else
 
 #ifdef USE_SPI
-    spiPinConfigure(spiPinConfig());
+    spiPinConfigure(spiPinConfig(0));
 
     // Initialize CS lines and keep them high
     spiPreInit();
@@ -484,8 +456,21 @@ void init(void)
 #endif
 #endif // USE_SPI
 
+#ifdef USE_USB_MSC
+/* MSC mode will start after init, but will not allow scheduler to run,
+ *  so there is no bottleneck in reading and writing data */
+    mscInit();
+    if (mscCheckBoot() || mscCheckButton()) {
+        if (mscStart() == 0) {
+             mscWaitForButton();
+        } else {
+             NVIC_SystemReset();
+        }
+    }
+#endif
+
 #ifdef USE_I2C
-    i2cHardwareConfigure(i2cConfig());
+    i2cHardwareConfigure(i2cConfig(0));
 
     // Note: Unlike UARTs which are configured when client is present,
     // I2C buses are initialized unconditionally if they are configured.
@@ -537,7 +522,10 @@ void init(void)
     adcConfigMutable()->current.enabled = (batteryConfig()->currentMeterSource == CURRENT_METER_ADC);
 
     // The FrSky D SPI RX sends RSSI_ADC_PIN (if configured) as A2
-    adcConfigMutable()->rssi.enabled = feature(FEATURE_RSSI_ADC) || (feature(FEATURE_RX_SPI) && rxConfig()->rx_spi_protocol == RX_SPI_FRSKY_D);
+    adcConfigMutable()->rssi.enabled = feature(FEATURE_RSSI_ADC);
+#ifdef USE_RX_SPI
+    adcConfigMutable()->rssi.enabled |= (feature(FEATURE_RX_SPI) && rxSpiConfig()->rx_spi_protocol == RX_SPI_FRSKY_D);
+#endif
     adcInit(adcConfig());
 #endif
 
@@ -549,20 +537,19 @@ void init(void)
         setArmingDisabled(ARMING_DISABLED_NO_GYRO);
     }
 
-#ifdef USE_GYRO_IMUF9001
-    if(!gyroIsSane())
-    {
-        setArmingDisabled(ARMING_DISABLED_NO_GYRO);
-    }
-#endif
-
     systemState |= SYSTEM_STATE_SENSORS_READY;
 
     // gyro.targetLooptime set in sensorsAutodetect(),
     // so we are ready to call validateAndFixGyroConfig(), pidInit(), and setAccelerationFilter()
     validateAndFixGyroConfig();
     pidInit(currentPidProfile);
-    accInitFilters();
+    if (sensors(SENSOR_ACC)){
+        accInitFilters();
+    }
+
+#ifdef USE_PID_AUDIO
+    pidAudioInit();
+#endif
 
 #ifdef USE_SERVOS
     servosInit();
@@ -589,10 +576,16 @@ void init(void)
     for (int i = 0; i < 10; i++) {
         LED1_TOGGLE;
         LED0_TOGGLE;
+#if defined(USE_BEEPER)
         delay(25);
-        if (!(getBeeperOffMask() & (1 << (BEEPER_SYSTEM_INIT - 1)))) BEEP_ON;
+        if (!(beeperConfig()->beeper_off_flags & BEEPER_GET_FLAG(BEEPER_SYSTEM_INIT))) {
+            BEEP_ON;
+        }
         delay(25);
         BEEP_OFF;
+#else
+        delay(50);
+#endif
     }
     LED0_OFF;
     LED1_OFF;
@@ -658,17 +651,18 @@ void init(void)
     }
 #endif
 
-#if defined(USE_CMS) && defined(USE_SPEKTRUM_CMS_TELEMETRY)
+#if defined(USE_CMS) && defined(USE_SPEKTRUM_CMS_TELEMETRY) && defined(USE_TELEMETRY_SRXL)
     // Register the srxl Textgen telemetry sensor as a displayport device
     cmsDisplayPortRegister(displayPortSrxlInit());
+#endif
+
+#if defined(USE_CMS) && defined(USE_CRSF_CMS_TELEMETRY) && defined(USE_TELEMETRY)
+    cmsDisplayPortRegister(displayPortCrsfInit());
 #endif
 
 #ifdef USE_GPS
     if (feature(FEATURE_GPS)) {
         gpsInit();
-#ifdef USE_NAV
-        navigationInit();
-#endif
     }
 #endif
 
@@ -692,7 +686,7 @@ void init(void)
     }
 #endif
 
-#ifdef USB_DETECT_PIN
+#ifdef USE_USB_DETECT
     usbCableDetectInit();
 #endif
 
@@ -705,8 +699,8 @@ void init(void)
 #endif
 
 #ifdef USE_FLASHFS
-#if defined(USE_FLASH_M25P16)
-    m25p16_init(flashConfig());
+#if defined(USE_FLASH)
+    flashInit(flashConfig());
 #endif
     flashfsInit();
 #endif
@@ -788,10 +782,6 @@ void init(void)
         dashboardEnablePageCycling();
 #endif
     }
-#endif
-
-#ifdef CJMCU
-    LED2_ON;
 #endif
 
 #ifdef USE_RCDEVICE

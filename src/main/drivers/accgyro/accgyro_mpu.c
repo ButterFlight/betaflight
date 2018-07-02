@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdbool.h>
@@ -57,14 +60,10 @@
 #include "drivers/accgyro/accgyro_spi_mpu9250.h"
 #ifdef USE_GYRO_IMUF9001
 #include "drivers/accgyro/accgyro_imuf9001.h"
+#include "rx/rx.h"
+#include "fc/fc_rc.h"
+#include "fc/runtime_config.h"
 #endif //USE_GYRO_IMUF9001
-#include "drivers/accgyro/accgyro_mpu.h"
-
-
-#ifdef USE_DMA_SPI_DEVICE
-volatile int dmaSpiGyroDataReady = 0;
-volatile uint32_t imufCrcErrorCount = 0;
-#endif //USE_DMA_SPI_DEVICE
 
 mpuResetFnPtr mpuResetFn;
 #ifdef USE_GYRO_IMUF9001
@@ -81,6 +80,7 @@ mpuResetFnPtr mpuResetFn;
 #define MPU_INQUIRY_MASK   0x7E
 
 #ifdef USE_I2C
+#ifndef USE_DMA_SPI_DEVICE
 static void mpu6050FindRevision(gyroDev_t *gyro)
 {
     // There is a map of revision contained in the android source tree which is quite comprehensive and may help to understand this code
@@ -114,6 +114,7 @@ static void mpu6050FindRevision(gyroDev_t *gyro)
         }
     }
 }
+#endif
 #endif
 
 /*
@@ -162,14 +163,13 @@ static void mpuIntExtiInit(gyroDev_t *gyro)
     EXTIHandlerInit(&gyro->exti, mpuIntExtiHandler);
     EXTIConfig(mpuIntIO, &gyro->exti, NVIC_PRIO_MPU_INT_EXTI, IO_CONFIG(GPIO_MODE_INPUT,0,GPIO_NOPULL));   // TODO - maybe pullup / pulldown ?
 #else
-
     IOInit(mpuIntIO, OWNER_MPU_EXTI, 0);
     IOConfigGPIO(mpuIntIO, IOCFG_IN_FLOATING);   // TODO - maybe pullup / pulldown ?
 
     EXTIHandlerInit(&gyro->exti, mpuIntExtiHandler);
     EXTIConfig(mpuIntIO, &gyro->exti, NVIC_PRIO_MPU_INT_EXTI, EXTI_Trigger_Rising);
-    EXTIEnable(mpuIntIO, true);
 #endif
+    EXTIEnable(mpuIntIO, true);
 }
 #endif // MPU_INT_EXTI
 
@@ -190,32 +190,43 @@ bool mpuAccRead(accDev_t *acc)
 }
 
 #ifdef USE_DMA_SPI_DEVICE
-bool mpuGyroDmaSpiReadStart(gyroDev_t * gyro)
+FAST_CODE bool mpuGyroDmaSpiReadStart(gyroDev_t * gyro)
 {
     (void)(gyro); ///not used at this time
     //no reason not to get acc and gyro data at the same time
-    lastImufExtiTime = micros();
     #ifdef USE_GYRO_IMUF9001
-    if (isImufCalibrating) //calibrating
+    if (isImufCalibrating == IMUF_IS_CALIBRATING) //calibrating
     {
         //two steps
         //step 1 is isImufCalibrating=1, this starts the calibration command and sends it to the IMU-f
         //step 2 is isImufCalibrating=2, this sets the tx buffer back to 0 so we don't keep sending the calibration command over and over
         memset(dmaTxBuffer, 0, sizeof(imufCommand_t)); //clear buffer
-        if (isImufCalibrating == IMUF_CALIBRATION_STEP1) //step 1, set the command to be sent
-        {
-            //set calibration command with CRC, typecast the dmaTxBuffer as imufCommand_t
-            (*(imufCommand_t *)(dmaTxBuffer)).command = IMUF_COMMAND_CALIBRATE;
-            (*(imufCommand_t *)(dmaTxBuffer)).crc     = getCrcImuf9001((uint32_t *)dmaTxBuffer, 11); //typecast the dmaTxBuffer as a uint32_t array which is what the crc command needs
-            //set isImufCalibrating to step 2, which is just used so the memset to 0 runs after the calibration commmand is sent
-            isImufCalibrating = IMUF_CALIBRATION_STEP2; //go to step two
-        }
-        else
-        {   //step 2, memset of the tx buffer has run, set isImufCalibrating to 0.
-            isImufCalibrating = IMUF_NOT_CALIBRATING;
-        }
-
+        //set calibration command with CRC, typecast the dmaTxBuffer as imufCommand_t
+        (*(imufCommand_t *)(dmaTxBuffer)).command = IMUF_COMMAND_CALIBRATE;
+        (*(imufCommand_t *)(dmaTxBuffer)).crc     = getCrcImuf9001((uint32_t *)dmaTxBuffer, 11); //typecast the dmaTxBuffer as a uint32_t array which is what the crc command needs
+        //set isImufCalibrating to step 2, which is just used so the memset to 0 runs after the calibration commmand is sent
+        isImufCalibrating = IMUF_DONE_CALIBRATING; //go to step two
     }
+    else if (isImufCalibrating == IMUF_DONE_CALIBRATING)
+    {
+        // step 2, memset of the tx buffer has run, set isImufCalibrating to 0.
+        (*(imufCommand_t *)(dmaTxBuffer)).command = 0;
+        (*(imufCommand_t *)(dmaTxBuffer)).crc     = 0; //typecast the dmaTxBuffer as a uint32_t array which is what the crc command needs
+        imufEndCalibration();
+    }
+    else
+    {
+        if (isSetpointNew) {
+            //send setpoint and arm status
+            (*(imufCommand_t *)(dmaTxBuffer)).command = IMUF_COMMAND_SETPOINT;
+            (*(imufCommand_t *)(dmaTxBuffer)).param1  = getSetpointRateInt(0);
+            (*(imufCommand_t *)(dmaTxBuffer)).param2  = getSetpointRateInt(1);
+            (*(imufCommand_t *)(dmaTxBuffer)).param3  = getSetpointRateInt(2);
+            (*(imufCommand_t *)(dmaTxBuffer)).crc     = getCrcImuf9001((uint32_t *)dmaTxBuffer, 11); //typecast the dmaTxBuffer as a uint32_t array which is what the crc command needs
+            isSetpointNew = 0;
+        }
+    }
+
     memset(dmaRxBuffer, 0, gyroConfig()->imuf_mode); //clear buffer
     //send and receive data using SPI and DMA
     dmaSpiTransmitReceive(dmaTxBuffer, dmaRxBuffer, gyroConfig()->imuf_mode, 0);
@@ -230,22 +241,18 @@ void mpuGyroDmaSpiReadFinish(gyroDev_t * gyro)
 {
     //spi rx dma callback
     #ifdef USE_GYRO_IMUF9001
-    volatile uint32_t crc1 = ( (*(uint32_t *)(dmaRxBuffer+gyroConfig()->imuf_mode-4)) & 0xFF );
-    volatile uint32_t crc2 = ( getCrcImuf9001((uint32_t *)(dmaRxBuffer), (gyroConfig()->imuf_mode >> 2)-1) & 0xFF );
-    if(crc1 == crc2)
-    {
-        memcpy(&imufData, dmaRxBuffer, sizeof(imufData_t));
-        acc.accADC[X]    = imufData.accX * acc.dev.acc_1G;
-        acc.accADC[Y]    = imufData.accY * acc.dev.acc_1G;
-        acc.accADC[Z]    = imufData.accZ * acc.dev.acc_1G;
-        gyro->gyroADC[X] = imufData.gyroX;
-        gyro->gyroADC[Y] = imufData.gyroY;
-        gyro->gyroADC[Z] = imufData.gyroZ;
-    }
-    else
-    {
-        //error handler
-        imufCrcErrorCount++; //check every so often and cause a failsafe is this number is above a certain ammount
+    memcpy(&imufData, dmaRxBuffer, sizeof(imufData_t));
+    acc.accADC[X]    = imufData.accX * acc.dev.acc_1G;
+    acc.accADC[Y]    = imufData.accY * acc.dev.acc_1G;
+    acc.accADC[Z]    = imufData.accZ * acc.dev.acc_1G;
+    gyro->gyroADC[X] = imufData.gyroX;
+    gyro->gyroADC[Y] = imufData.gyroY;
+    gyro->gyroADC[Z] = imufData.gyroZ;
+    if (gyroConfig()->imuf_mode == GTBCM_GYRO_ACC_QUAT_FILTER_F) {
+        imufQuat.w       = imufData.quaternionW;
+        imufQuat.x       = imufData.quaternionX;
+        imufQuat.y       = imufData.quaternionY;
+        imufQuat.z       = imufData.quaternionZ;
     }
     #else
     acc.dev.ADCRaw[X]   = (int16_t)((dmaRxBuffer[1] << 8)  | dmaRxBuffer[2]);
@@ -255,7 +262,6 @@ void mpuGyroDmaSpiReadFinish(gyroDev_t * gyro)
     gyro->gyroADCRaw[Y] = (int16_t)((dmaRxBuffer[11] << 8) | dmaRxBuffer[12]);
     gyro->gyroADCRaw[Z] = (int16_t)((dmaRxBuffer[13] << 8) | dmaRxBuffer[14]);
     #endif
-    dmaSpiGyroDataReady = 1; //set flag to tell scheduler data is ready
 }
 #endif
 
@@ -301,8 +307,10 @@ static bool detectSPISensorsAndUpdateDetectionResult(gyroDev_t *gyro)
     uint8_t sensor = MPU_NONE;
     UNUSED(sensor);
 
+    // note, when USE_DUAL_GYRO is enabled the gyro->bus must already be initialised.
+
 #ifdef USE_GYRO_SPI_MPU6000
-    #ifdef MPU6000_SPI_INSTANCE
+#ifndef USE_DUAL_GYRO
     spiBusSetInstance(&gyro->bus, MPU6000_SPI_INSTANCE);
     #endif
     #ifdef MPU6000_CS_PIN
@@ -316,7 +324,7 @@ static bool detectSPISensorsAndUpdateDetectionResult(gyroDev_t *gyro)
 #endif
 
 #ifdef USE_GYRO_SPI_MPU6500
-#ifdef MPU6500_SPI_INSTANCE
+#ifndef USE_DUAL_GYRO
     spiBusSetInstance(&gyro->bus, MPU6500_SPI_INSTANCE);
 #endif
 #ifdef MPU6500_CS_PIN
@@ -384,13 +392,14 @@ static bool detectSPISensorsAndUpdateDetectionResult(gyroDev_t *gyro)
 #endif
 
 #ifdef USE_GYRO_SPI_ICM20689
-    #ifdef ICM20689_SPI_INSTANCE
+#ifndef USE_DUAL_GYRO
     spiBusSetInstance(&gyro->bus, ICM20689_SPI_INSTANCE);
     #endif
     #ifdef ICM20689_CS_PIN
     gyro->bus.busdev_u.spi.csnPin = gyro->bus.busdev_u.spi.csnPin == IO_NONE ? IOGetByTag(IO_TAG(ICM20689_CS_PIN)) : gyro->bus.busdev_u.spi.csnPin;
     #endif
     sensor = icm20689SpiDetect(&gyro->bus);
+    // icm20689SpiDetect detects ICM20602 and ICM20689
     if (sensor != MPU_NONE) {
         gyro->mpuDetectionResult.sensor = sensor;
         return true;
@@ -398,7 +407,7 @@ static bool detectSPISensorsAndUpdateDetectionResult(gyroDev_t *gyro)
 #endif
 
 #ifdef USE_ACCGYRO_BMI160
-    #ifdef BMI160_SPI_INSTANCE
+#ifndef USE_DUAL_GYRO
     spiBusSetInstance(&gyro->bus, BMI160_SPI_INSTANCE);
     #endif
     #ifdef BMI160_CS_PIN
@@ -420,44 +429,45 @@ void mpuDetect(gyroDev_t *gyro)
     // MPU datasheet specifies 30ms.
     delay(35);
 #ifdef USE_I2C
-    uint8_t sig = 0;
+#ifndef USE_DMA_SPI_DEVICE
+    if (gyro->bus.bustype == BUSTYPE_NONE) {
+        // if no bustype is selected try I2C first.
+        gyro->bus.bustype = BUSTYPE_I2C;
+    }
+
+    if (gyro->bus.bustype == BUSTYPE_I2C) {
+        gyro->bus.busdev_u.i2c.device = MPU_I2C_INSTANCE;
+        gyro->bus.busdev_u.i2c.address = MPU_ADDRESS;
+
+        uint8_t sig = 0;
+        bool ack = busReadRegisterBuffer(&gyro->bus, MPU_RA_WHO_AM_I, &sig, 1);
+
+        if (ack) {
+            // If an MPU3050 is connected sig will contain 0.
+            uint8_t inquiryResult;
+            ack = busReadRegisterBuffer(&gyro->bus, MPU_RA_WHO_AM_I_LEGACY, &inquiryResult, 1);
+            inquiryResult &= MPU_INQUIRY_MASK;
+            if (ack && inquiryResult == MPUx0x0_WHO_AM_I_CONST) {
+                gyro->mpuDetectionResult.sensor = MPU_3050;
+                return;
+            }
+
+            sig &= MPU_INQUIRY_MASK;
+            if (sig == MPUx0x0_WHO_AM_I_CONST) {
+                gyro->mpuDetectionResult.sensor = MPU_60x0;
+                mpu6050FindRevision(gyro);
+            } else if (sig == MPU6500_WHO_AM_I_CONST) {
+                gyro->mpuDetectionResult.sensor = MPU_65xx_I2C;
+            }
+            return;
+        }
+    }
+#endif
 #endif
 
-#ifdef USE_DMA_SPI_DEVICE
-    bool ack = false;
-#elif defined(USE_I2C)
-    gyro->bus.bustype = BUSTYPE_I2C;
-    gyro->bus.busdev_u.i2c.device = MPU_I2C_INSTANCE;
-    gyro->bus.busdev_u.i2c.address = MPU_ADDRESS;
-    bool ack = busReadRegisterBuffer(&gyro->bus, MPU_RA_WHO_AM_I, &sig, 1);
-#else
-    bool ack = false;
-#endif
-
-    if (!ack) {
 #ifdef USE_SPI
-        detectSPISensorsAndUpdateDetectionResult(gyro);
-#endif
-        return;
-    }
-
-#ifdef USE_I2C
-    // If an MPU3050 is connected sig will contain 0.
-    uint8_t inquiryResult;
-    ack = busReadRegisterBuffer(&gyro->bus, MPU_RA_WHO_AM_I_LEGACY, &inquiryResult, 1);
-    inquiryResult &= MPU_INQUIRY_MASK;
-    if (ack && inquiryResult == MPUx0x0_WHO_AM_I_CONST) {
-        gyro->mpuDetectionResult.sensor = MPU_3050;
-        return;
-    }
-
-    sig &= MPU_INQUIRY_MASK;
-    if (sig == MPUx0x0_WHO_AM_I_CONST) {
-        gyro->mpuDetectionResult.sensor = MPU_60x0;
-        mpu6050FindRevision(gyro);
-    } else if (sig == MPU6500_WHO_AM_I_CONST) {
-        gyro->mpuDetectionResult.sensor = MPU_65xx_I2C;
-    }
+    gyro->bus.bustype = BUSTYPE_SPI;
+    detectSPISensorsAndUpdateDetectionResult(gyro);
 #endif
 }
 
@@ -469,3 +479,54 @@ void mpuGyroInit(gyroDev_t *gyro)
     UNUSED(gyro);
 #endif
 }
+
+uint8_t mpuGyroDLPF(gyroDev_t *gyro)
+{
+    uint8_t ret;
+    if (gyro->gyroRateKHz > GYRO_RATE_8_kHz) {
+        ret = 0;  // If gyro is in 32KHz mode then the DLPF bits aren't used - set to 0
+    } else {
+        switch (gyro->hardware_lpf) {
+            case GYRO_HARDWARE_LPF_NORMAL:
+                ret = 0;
+                break;
+            case GYRO_HARDWARE_LPF_EXPERIMENTAL:
+                ret = 7;
+                break;
+            case GYRO_HARDWARE_LPF_1KHZ_SAMPLE:
+                ret = 1;
+                break;
+            default:
+                ret = 0;
+                break;
+        }
+    }
+    return ret;
+}
+
+uint8_t mpuGyroFCHOICE(gyroDev_t *gyro)
+{
+    if (gyro->gyroRateKHz > GYRO_RATE_8_kHz) {
+        if (gyro->hardware_32khz_lpf == GYRO_32KHZ_HARDWARE_LPF_EXPERIMENTAL) {
+            return FCB_8800_32;
+        } else {
+            return FCB_3600_32;
+        }
+    } else {
+        return FCB_DISABLED;  // Not in 32KHz mode, set FCHOICE to select 8KHz sampling
+    }
+}
+
+#ifdef USE_GYRO_REGISTER_DUMP
+uint8_t mpuGyroReadRegister(const busDevice_t *bus, uint8_t reg)
+{
+    uint8_t data;
+    const bool ack = busReadRegisterBuffer(bus, reg, &data, 1);
+    if (ack) {
+        return data;
+    } else {
+        return 0;
+    }
+
+}
+#endif

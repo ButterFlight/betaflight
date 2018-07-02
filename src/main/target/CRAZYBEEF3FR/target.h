@@ -31,7 +31,8 @@
 #define ENABLE_DSHOT_DMAR       true
 
 #define LED0_PIN                PB3
-#define BEEPER              	PC15
+#define USE_BEEPER 
+#define BEEPER_PIN              PC15
 #define BEEPER_INVERTED
 
 #define USE_EXTI
@@ -93,7 +94,6 @@
 #define BINDPLUG_PIN            PA9
 #endif
 
-#define USE_OSD
 #define USE_MAX7456
 #define MAX7456_SPI_INSTANCE    SPI1
 #define MAX7456_SPI_CS_PIN      PB1

@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -31,6 +34,7 @@ typedef enum {
     TASK_PRIORITY_MEDIUM_HIGH = 4,
     TASK_PRIORITY_HIGH = 5,
     TASK_PRIORITY_REALTIME = 6,
+    TASK_PRIORITY_TRIGGER = 7,
     TASK_PRIORITY_MAX = 255
 } cfTaskPriority_e;
 
@@ -55,16 +59,18 @@ typedef struct {
 typedef enum {
     /* Actual tasks */
     TASK_SYSTEM = 0,
+    TASK_MAIN,
     TASK_GYROPID,
     TASK_ACCEL,
     TASK_ATTITUDE,
     TASK_RX,
+    TASK_RC_INTERP,
     TASK_SERIAL,
     TASK_DISPATCH,
     TASK_BATTERY_VOLTAGE,
     TASK_BATTERY_CURRENT,
     TASK_BATTERY_ALERTS,
-#ifdef BEEPER
+#ifdef USE_BEEPER
     TASK_BEEPER,
 #endif
 #ifdef USE_GPS
@@ -79,7 +85,7 @@ typedef enum {
 #ifdef USE_RANGEFINDER
     TASK_RANGEFINDER,
 #endif
-#if defined(USE_BARO) || defined(USE_RANGEFINDER)
+#if defined(USE_BARO) || defined(USE_GPS)
     TASK_ALTITUDE,
 #endif
 #ifdef USE_DASHBOARD
@@ -147,7 +153,7 @@ typedef struct {
     void (*taskFunc)(timeUs_t currentTimeUs);
     timeDelta_t desiredPeriod;      // target period of execution
     const uint8_t staticPriority;   // dynamicPriority grows in steps of this size, shouldn't be zero
-
+    bool executeNow;
     // Scheduling
     uint16_t dynamicPriority;       // measurement of how old task was last executed, used to avoid task starvation
     uint16_t taskAgeCycles;
@@ -176,7 +182,7 @@ void schedulerResetTaskStatistics(cfTaskId_e taskId);
 
 void schedulerInit(void);
 void scheduler(void);
-void taskSystem(timeUs_t currentTime);
+void taskSystemLoad(timeUs_t currentTime);
 
 #define LOAD_PERCENTAGE_ONE 100
 

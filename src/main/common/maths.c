@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <stdint.h>
@@ -115,16 +118,22 @@ float powerf(float base, int exp) {
     return result;
 }
 
-int32_t applyDeadband(int32_t value, int32_t deadband)
+int32_t applyDeadband(const int32_t value, const int32_t deadband)
 {
     if (ABS(value) < deadband) {
-        value = 0;
-    } else if (value > 0) {
-        value -= deadband;
-    } else if (value < 0) {
-        value += deadband;
+        return 0;
     }
-    return value;
+
+    return value >= 0 ? value - deadband : value + deadband;
+}
+
+float fapplyDeadband(const float value, const float deadband)
+{
+    if (fabsf(value) < deadband) {
+        return 0;
+    }
+
+    return value >= 0 ? value - deadband : value + deadband;
 }
 
 void devClear(stdev_t *dev)
@@ -164,6 +173,12 @@ float degreesToRadians(int16_t degrees)
 int scaleRange(int x, int srcFrom, int srcTo, int destFrom, int destTo) {
     long int a = ((long int) destTo - (long int) destFrom) * ((long int) x - (long int) srcFrom);
     long int b = (long int) srcTo - (long int) srcFrom;
+    return (a / b) + destFrom;
+}
+
+float scaleRangef(float x, float srcFrom, float srcTo, float destFrom, float destTo) {
+    float a = (destTo - destFrom) * (x - srcFrom);
+    float b = srcTo - srcFrom;
     return (a / b) + destFrom;
 }
 
@@ -344,4 +359,108 @@ int16_t qMultiply(fix12_t q, int16_t input) {
 
 fix12_t  qConstruct(int16_t num, int16_t den) {
     return (num << 12) / den;
+}
+
+// quaternions
+void quaternionTransformVectorBodyToEarth(quaternion *qVector, quaternion *qReference) {
+    quaternion qVectorBuffer, qReferenceConjugate;
+    qVector->w = 0;
+
+    quaternionCopy(qVector, &qVectorBuffer);
+    quaternionConjugate(qReference, &qReferenceConjugate);
+    quaternionMultiply(qReference, &qVectorBuffer, &qVectorBuffer);
+    quaternionMultiply(&qVectorBuffer, &qReferenceConjugate, qVector);
+}
+
+void quaternionTransformVectorEarthToBody(quaternion *qVector, quaternion *qReference) {
+    quaternion qVectorBuffer, qReferenceConjugate;
+    qVector->w = 0;
+
+    quaternionCopy(qVector, &qVectorBuffer);
+    quaternionConjugate(qReference, &qReferenceConjugate);
+    quaternionMultiply(&qReferenceConjugate, &qVectorBuffer, &qVectorBuffer);
+    quaternionMultiply(&qVectorBuffer, qReference, qVector);
+}
+
+void quaternionComputeProducts(quaternion *qIn, quaternionProducts *qPout) {
+    qPout->ww = qIn->w * qIn->w;
+    qPout->wx = qIn->w * qIn->x;
+    qPout->wy = qIn->w * qIn->y;
+    qPout->wz = qIn->w * qIn->z;
+    qPout->xx = qIn->x * qIn->x;
+    qPout->xy = qIn->x * qIn->y;
+    qPout->xz = qIn->x * qIn->z;
+    qPout->yy = qIn->y * qIn->y;
+    qPout->yz = qIn->y * qIn->z;
+    qPout->zz = qIn->z * qIn->z;
+}
+
+void quaternionMultiply(quaternion *l, quaternion *r, quaternion *o) {
+    const float w = l->w * r->w - l->x * r->x - l->y * r->y - l->z * r->z;
+    const float x = l->w * r->x + l->x * r->w + l->y * r->z - l->z * r->y;
+    const float y = l->w * r->y - l->x * r->z + l->y * r->w + l->z * r->x;
+    const float z = l->w * r->z + l->x * r->y - l->y * r->x + l->z * r->w;
+    o->w = w;
+    o->x = x;
+    o->y = y;
+    o->z = z;
+}
+
+void quaternionNormalize(quaternion *q) {
+    float modulus = quaternionModulus(q);
+    if (modulus == 0) {
+        // normalization not possible
+    } else {
+        q->w /= modulus;
+        q->x /= modulus;
+        q->y /= modulus;
+        q->z /= modulus;
+    }
+}
+
+void quaternionAdd(quaternion *l, quaternion *r, quaternion *o) {
+    o->w = l->w + r->w;
+    o->x = l->x + r->x;
+    o->y = l->y + r->y;
+    o->z = l->z + r->z;
+}
+
+void quaternionCopy(quaternion *s, quaternion *d) {
+    d->w = s->w;
+    d->x = s->x;
+    d->y = s->y;
+    d->z = s->z;
+}
+
+void quaternionConjugate(quaternion *i, quaternion *o) {
+    o->w = + i->w;
+    o->x = - i->x;
+    o->y = - i->y;
+    o->z = - i->z;
+}
+
+float quaternionDotProduct(quaternion *l, quaternion *r) {
+    return (l->w * r->w + l->x * r->x + l->y * r->y + l->z * r->z);
+}
+
+float quaternionNorm(quaternion *q) {
+    return (q->w * q->w + q->x * q->x + q->y * q->y + q->z * q->z);
+}
+
+float quaternionModulus(quaternion *q) {
+    return (sqrtf(quaternionNorm(q)));
+}
+
+void quaternionInitQuaternion(quaternion *i) {
+    i->w = 1;
+    i->x = 0;
+    i->y = 0;
+    i->z = 0;
+}
+
+void quaternionInitVector(quaternion *i) {
+    i->w = 0;
+    i->x = 0;
+    i->y = 0;
+    i->z = 0;
 }

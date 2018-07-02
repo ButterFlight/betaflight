@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -24,11 +27,6 @@
 #elif defined(AIRBOTF4SD)
 #define TARGET_BOARD_IDENTIFIER "A4SD"
 #define USBD_PRODUCT_STRING     "AirbotF4SD"
-
-#elif defined(REVOLT)
-#define TARGET_BOARD_IDENTIFIER "RVLT"
-#define USBD_PRODUCT_STRING     "Revolt"
-#define TARGET_DEFAULT_MIXER    MIXER_QUADX_1234
 
 #elif defined(SOULF4)
 #define TARGET_BOARD_IDENTIFIER "SOUL"
@@ -54,24 +52,22 @@
 #define LED2_PIN                PB6
 #endif
 
-// Disable LED1, conflicts with AirbotF4/Flip32F4/Revolt beeper
+// Disable LED1, conflicts with AirbotF4/Flip32F4 beeper
 #if defined(AIRBOTF4) || defined(AIRBOTF4SD)
-#define BEEPER                  PB4
+#define USE_BEEPER
+#define BEEPER_PIN              PB4
 #define BEEPER_INVERTED
-#elif defined(REVOLT)
-#define BEEPER                  PB4
 #elif defined(SOULF4)
-#define BEEPER                  PB6
+#define USE_BEEPER
+#define BEEPER_PIN              PB6
 #define BEEPER_INVERTED
 #else
 #define LED1_PIN                PB4
 // Leave beeper here but with none as io - so disabled unless mapped.
-#define BEEPER                  NONE
+#define USE_BEEPER
+#define BEEPER_PIN              NONE
 #endif
 
-#if defined(REVOLT)
-#define ENABLE_DSHOT_DMAR       true
-#endif
 
 // PC0 used as inverter select GPIO
 #ifdef AIRBOTF4SD
@@ -96,8 +92,12 @@
 #define ICM20601_CS_PIN         PA4 // served through MPU6500 code
 #define ICM20601_SPI_INSTANCE   SPI1
 #define USE_DUAL_GYRO
-#define GYRO_0_CS_PIN           MPU6000_CS_PIN
-#define GYRO_1_CS_PIN           ICM20601_CS_PIN
+#define GYRO_1_CS_PIN           MPU6000_CS_PIN
+#define GYRO_2_CS_PIN           ICM20601_CS_PIN
+#define GYRO_1_SPI_INSTANCE     MPU6000_SPI_INSTANCE
+#define GYRO_2_SPI_INSTANCE     ICM20601_SPI_INSTANCE
+#define ACC_1_ALIGN             ALIGN_DEFAULT
+#define ACC_2_ALIGN             ALIGN_DEFAULT
 #endif
 
 #if defined(SOULF4)
@@ -107,7 +107,7 @@
 #define USE_ACC_SPI_MPU6000
 #define ACC_MPU6000_ALIGN       CW180_DEG
 
-#elif defined(REVOLT) || defined(PODIUMF4)
+#elif defined(PODIUMF4)
 
 #define USE_GYRO_MPU6500
 #define USE_GYRO_SPI_MPU6500
@@ -143,6 +143,7 @@
 // Configure MAG and BARO unconditionally.
 #define USE_MAG
 #define USE_MAG_HMC5883
+#define USE_MAG_QMC5883
 #define MAG_HMC5883_ALIGN       CW90_DEG
 
 #define USE_BARO
@@ -175,8 +176,8 @@
 
 #else
 
-#define M25P16_CS_PIN           PB3
-#define M25P16_SPI_INSTANCE     SPI3
+#define FLASH_CS_PIN            PB3
+#define FLASH_SPI_INSTANCE      SPI3
 #define USE_FLASHFS
 #define USE_FLASH_M25P16
 
@@ -185,9 +186,11 @@
 
 #define USE_VCP
 #if defined(PODIUMF4)
-#define VBUS_SENSING_PIN        PA8
+#define USE_USB_DETECT
+#define USB_DETECT_PIN          PA8
 #else
-#define VBUS_SENSING_PIN        PC5
+#define USE_USB_DETECT
+#define USB_DETECT_PIN          PC5
 #endif
 
 #define USE_UART1
@@ -199,20 +202,21 @@
 #define UART3_RX_PIN            PB11
 #define UART3_TX_PIN            PB10
 
-#if defined(REVOLT) || defined(REVO)
+#if defined(REVO)
 #define USE_UART4
 #define UART4_RX_PIN            PA1
 #define UART4_TX_PIN            PA0
-#endif // REVOLT || REVO
+#endif // REVO
 
 #define USE_UART6
 #define UART6_RX_PIN            PC7
 #define UART6_TX_PIN            PC6
+#define PINIO1_PIN              PC8 // DTR pin
 
 #define USE_SOFTSERIAL1
 #define USE_SOFTSERIAL2
 
-#if defined(REVOLT) || defined(REVO)
+#if defined(REVO)
 #define SERIAL_PORT_COUNT       7 //VCP, USART1, USART3, UART4,  USART6, SOFTSERIAL x 2
 #else
 #define SERIAL_PORT_COUNT       6 //VCP, USART1, USART3, USART6, SOFTSERIAL x 2
@@ -277,10 +281,7 @@
 #define TARGET_IO_PORTC         0xffff
 #define TARGET_IO_PORTD         (BIT(2))
 
-#ifdef REVOLT
-#define USABLE_TIMER_CHANNEL_COUNT 11
-#define USED_TIMERS             ( TIM_N(2) | TIM_N(3) | TIM_N(4) | TIM_N(8) | TIM_N(12) )
-#elif defined(AIRBOTF4) || defined(AIRBOTF4SD)
+#if defined(AIRBOTF4) || defined(AIRBOTF4SD)
 #define USABLE_TIMER_CHANNEL_COUNT 13
 #define USED_TIMERS             ( TIM_N(1) | TIM_N(2) | TIM_N(3) | TIM_N(5) | TIM_N(8) | TIM_N(12) )
 #else

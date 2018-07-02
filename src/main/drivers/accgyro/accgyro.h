@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
@@ -24,6 +27,7 @@
 #include "drivers/bus.h"
 #include "drivers/sensor.h"
 #include "drivers/accgyro/accgyro_mpu.h"
+#include "sensors/gyro.h"
 #pragma GCC diagnostic push
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_MULTITHREAD)
 #include <pthread.h>
@@ -35,24 +39,32 @@
 #define MPU_I2C_INSTANCE I2C_DEVICE
 #endif
 
-#define GYRO_LPF_256HZ      0
-#define GYRO_LPF_188HZ      1
-#define GYRO_LPF_98HZ       2
-#define GYRO_LPF_42HZ       3
-#define GYRO_LPF_20HZ       4
-#define GYRO_LPF_10HZ       5
-#define GYRO_LPF_5HZ        6
-#define GYRO_LPF_NONE       7
+#define GYRO_HARDWARE_LPF_NORMAL       0
+#define GYRO_HARDWARE_LPF_EXPERIMENTAL 1
+#define GYRO_HARDWARE_LPF_1KHZ_SAMPLE  2
 
-typedef enum {
-    GYRO_RATE_1_kHz,
-    GYRO_RATE_1100_Hz,
-    GYRO_RATE_3200_Hz,
-    GYRO_RATE_8_kHz,
-    GYRO_RATE_9_kHz,
-    GYRO_RATE_16_kHz,
-    GYRO_RATE_32_kHz,
-} gyroRateKHz_e;
+#define GYRO_32KHZ_HARDWARE_LPF_NORMAL       0
+#define GYRO_32KHZ_HARDWARE_LPF_EXPERIMENTAL 1    
+
+enum {
+    GYRO_LPF_256HZ = 0,
+    GYRO_LPF_188HZ,
+    GYRO_LPF_98HZ,
+    GYRO_LPF_42HZ,
+    GYRO_LPF_20HZ,
+    GYRO_LPF_10HZ,
+    GYRO_LPF_5HZ,
+    GYRO_LPF_NONE
+};
+//This optimizes the frequencies instead of calculating them 
+//in the case of 1100 and 9000, they would divide as irrational numbers.
+#define GYRO_RATE_1_kHz     1000.0f
+#define GYRO_RATE_1100_Hz   909.09f
+#define GYRO_RATE_3200_Hz   312.5f
+#define GYRO_RATE_8_kHz     125.0f
+#define GYRO_RATE_9_kHz     111.11f
+#define GYRO_RATE_16_kHz    62.5f
+#define GYRO_RATE_32_kHz    34.0f
 
 typedef struct gyroDev_s {
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_MULTITHREAD)
@@ -66,20 +78,23 @@ typedef struct gyroDev_s {
     float scale;                                            // scalefactor
     float gyroZero[XYZ_AXIS_COUNT];
     float gyroADC[XYZ_AXIS_COUNT];                        // gyro data after calibration and alignment
+    float gyroADCf[XYZ_AXIS_COUNT];
     int32_t gyroADCRawPrevious[XYZ_AXIS_COUNT];
     int16_t gyroADCRaw[XYZ_AXIS_COUNT];
     int16_t temperature;
     mpuConfiguration_t mpuConfiguration;
     mpuDetectionResult_t mpuDetectionResult;
     sensor_align_e gyroAlign;
-    gyroRateKHz_e gyroRateKHz;
     bool dataReady;
     bool gyro_high_fsr;
-    uint8_t lpf;
+    uint8_t hardware_lpf;
+    uint8_t hardware_32khz_lpf;
     uint8_t mpuDividerDrops;
     ioTag_t mpuIntExtiTag;
-    uint8_t filler[3];
-} gyroDev_t;
+    uint8_t gyroHasOverflowProtection;
+    gyroSensor_e gyroHardware;
+    float gyroRateKHz;
+} __attribute__((packed)) gyroDev_t;
 
 typedef struct accDev_s {
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_MULTITHREAD)

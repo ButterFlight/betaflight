@@ -1,18 +1,21 @@
 /*
- * This file is part of Cleanflight.
+ * This file is part of Cleanflight and Betaflight.
  *
- * Cleanflight is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Cleanflight and Betaflight are free software. You can redistribute
+ * this software and/or modify this software under the terms of the
+ * GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option)
+ * any later version.
  *
- * Cleanflight is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Cleanflight and Betaflight are distributed in the hope that they
+ * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cleanflight.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this software.
+ *
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define SRC_MAIN_SCHEDULER_C_
@@ -42,21 +45,21 @@
 // 2 - time spent in scheduler
 // 3 - time spent executing check function
 
-static FAST_RAM cfTask_t *currentTask = NULL;
+static FAST_RAM_ZERO_INIT cfTask_t *currentTask = NULL;
 
-static FAST_RAM uint32_t totalWaitingTasks;
-static FAST_RAM uint32_t totalWaitingTasksSamples;
+static FAST_RAM_ZERO_INIT uint32_t totalWaitingTasks;
+static FAST_RAM_ZERO_INIT uint32_t totalWaitingTasksSamples;
 
-static FAST_RAM bool calculateTaskStatistics;
-FAST_RAM uint16_t averageSystemLoadPercent = 0;
+static FAST_RAM_ZERO_INIT bool calculateTaskStatistics;
+FAST_RAM_ZERO_INIT uint16_t averageSystemLoadPercent = 0;
 
 
-static FAST_RAM int taskQueuePos = 0;
-STATIC_UNIT_TESTED FAST_RAM int taskQueueSize = 0;
+static FAST_RAM_ZERO_INIT int taskQueuePos = 0;
+STATIC_UNIT_TESTED FAST_RAM_ZERO_INIT int taskQueueSize = 0;
 
 // No need for a linked list for the queue, since items are only inserted at startup
 
-STATIC_UNIT_TESTED FAST_RAM cfTask_t* taskQueueArray[TASK_COUNT + 1]; // extra item for NULL pointer at end of queue
+STATIC_UNIT_TESTED FAST_RAM_ZERO_INIT cfTask_t* taskQueueArray[TASK_COUNT + 1]; // extra item for NULL pointer at end of queue
 
 void queueClear(void)
 {
@@ -120,7 +123,7 @@ FAST_CODE cfTask_t *queueNext(void)
     return taskQueueArray[++taskQueuePos]; // guaranteed to be NULL at end of queue
 }
 
-void taskSystem(timeUs_t currentTimeUs)
+void taskSystemLoad(timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
 
@@ -232,7 +235,7 @@ FAST_CODE void scheduler(void)
 
     // Check for realtime tasks
     bool outsideRealtimeGuardInterval = true;
-    for (const cfTask_t *task = queueFirst(); task != NULL && task->staticPriority >= TASK_PRIORITY_REALTIME; task = queueNext()) {
+    for (const cfTask_t *task = queueFirst(); task != NULL && task->staticPriority == TASK_PRIORITY_REALTIME; task = queueNext()) {
         const timeUs_t nextExecuteAt = task->lastExecutedAt + task->desiredPeriod;
         if ((timeDelta_t)(currentTimeUs - nextExecuteAt) >= 0) {
             outsideRealtimeGuardInterval = false;
@@ -255,7 +258,22 @@ FAST_CODE void scheduler(void)
             const timeUs_t currentTimeBeforeCheckFuncCall = currentTimeUs;
 #endif
             // Increase priority for event driven tasks
-            if (task->dynamicPriority > 0) {
+            if (task->staticPriority == TASK_PRIORITY_TRIGGER)
+            {
+                if (task->checkFunc(currentTimeBeforeCheckFuncCall, currentTimeBeforeCheckFuncCall - task->lastExecutedAt)) {
+                    task->taskAgeCycles = ((currentTimeUs - task->lastExecutedAt) / task->desiredPeriod);
+                    if (task->taskAgeCycles > 0) {
+                        task->dynamicPriority = 1 + task->staticPriority * task->taskAgeCycles;
+                        waitingTasks++;
+                    }
+                }
+                else
+                {
+                    task->taskAgeCycles = 0;
+                }
+            }
+            else if (task->dynamicPriority > 0) 
+            {
                 task->taskAgeCycles = 1 + ((currentTimeUs - task->lastSignaledAt) / task->desiredPeriod);
                 task->dynamicPriority = 1 + task->staticPriority * task->taskAgeCycles;
                 waitingTasks++;
