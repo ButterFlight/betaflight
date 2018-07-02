@@ -26,9 +26,7 @@
 #define U_ID_1 1
 #define U_ID_2 2
 
-#define NOINLINE
 #define FAST_CODE
-#define FAST_CODE_NOINLINE
 #define FAST_RAM_ZERO_INIT
 #define FAST_RAM
 
@@ -39,7 +37,6 @@
 #define USE_DASHBOARD
 #define USE_TELEMETRY
 #define USE_LED_STRIP
-#define USE_SERVOS
 #define USE_TRANSPONDER
 
 typedef enum

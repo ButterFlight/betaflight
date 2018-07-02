@@ -89,7 +89,7 @@ extern "C" {
         [TASK_ATTITUDE] = {
             .taskName = "ATTITUDE",
             .taskFunc = imuUpdateAttitude,
-            .desiredPeriod = TASK_PERIOD_HZ(100),
+            .desiredPeriod = TASK_PERIOD_HZ(1000),
             .staticPriority = TASK_PRIORITY_MEDIUM,
         },
         [TASK_RX] = {
@@ -97,6 +97,12 @@ extern "C" {
             .checkFunc = rxUpdateCheck,
             .taskFunc = taskUpdateRxMain,
             .desiredPeriod = TASK_PERIOD_HZ(50),
+            .staticPriority = TASK_PRIORITY_HIGH,
+        },
+        [TASK_RC_INTERP] = {
+            .taskName = "RC_INTERP",
+            .taskFunc = subTaskRcCommand,
+            .desiredPeriod = TASK_PERIOD_HZ(RC_INTERP_LOOPTIME),
             .staticPriority = TASK_PRIORITY_HIGH,
         },
         [TASK_SERIAL] = {

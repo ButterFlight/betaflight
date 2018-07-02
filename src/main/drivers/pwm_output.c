@@ -65,7 +65,11 @@ static uint16_t freqBeep = 0;
 static bool pwmMotorsEnabled = false;
 static bool isDshot = false;
 #ifdef USE_DSHOT_DMAR
-FAST_RAM_ZERO_INIT bool useBurstDshot = false;
+#ifdef ENABLE_DSHOT_DMAR
+bool useBurstDshot = true;
+#else
+bool useBurstDshot = false;
+#endif
 #endif
 
 static void pwmOCConfig(TIM_TypeDef *tim, uint8_t channel, uint16_t value, uint8_t output)
@@ -167,7 +171,7 @@ static FAST_CODE uint8_t loadDmaBufferDshot(uint32_t *dmaBuffer, int stride, uin
     return DSHOT_DMA_BUFFER_SIZE;
 }
 
-static uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t packet)
+static FAST_CODE uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t packet)
 {
     for (int i = 0; i < 4; i++) {
         dmaBuffer[i * stride] = PROSHOT_BASE_SYMBOL + ((packet & 0xF000) >> 12) * PROSHOT_BIT_WIDTH;  // Most significant nibble first
@@ -178,7 +182,7 @@ static uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t pa
 }
 #endif
 
-void pwmWriteMotor(uint8_t index, float value)
+void FAST_CODE pwmWriteMotor(uint8_t index, float value)
 {
     pwmWrite(index, value);
 }
@@ -480,7 +484,7 @@ uint8_t pwmGetDshotCommand(uint8_t index)
     return dshotCommandControl.command[index];
 }
 
-FAST_CODE_NOINLINE bool pwmDshotCommandOutputIsEnabled(uint8_t motorCount)
+bool FAST_CODE pwmProcessDshotCommand(uint8_t motorCount)
 {
     timeUs_t timeNowUs = micros();
 

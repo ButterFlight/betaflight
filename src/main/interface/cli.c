@@ -59,12 +59,16 @@ extern uint8_t __config_end;
 #include "config/feature.h"
 
 #include "drivers/accgyro/accgyro.h"
+#ifdef USE_GYRO_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif
 #include "drivers/adc.h"
 #include "drivers/buf_writer.h"
 #include "drivers/bus_spi.h"
 #include "drivers/compass/compass.h"
 #include "drivers/display.h"
 #include "drivers/dma.h"
+#include "drivers/dma_spi.h"
 #include "drivers/flash.h"
 #include "drivers/io.h"
 #include "drivers/io_impl.h"
@@ -207,7 +211,7 @@ static const char * const featureNames[] = {
     "RANGEFINDER", "TELEMETRY", "", "3D", "RX_PARALLEL_PWM",
     "RX_MSP", "RSSI_ADC", "LED_STRIP", "DISPLAY", "OSD",
     "", "CHANNEL_FORWARDING", "TRANSPONDER", "AIRMODE",
-    "", "", "RX_SPI", "SOFTSPI", "ESC_SENSOR", "ANTI_GRAVITY", "DYNAMIC_FILTER", NULL
+    "", "", "RX_SPI", "SOFTSPI", "ESC_SENSOR", "ANTI_GRAVITY", "DYNAMIC_FILTER", "LEGACY_SA_SUPPORT", NULL
 };
 
 // sync this with rxFailsafeChannelMode_e
@@ -487,8 +491,23 @@ static bool valuePtrEqualsDefault(const clivalue_t *var, const void *ptr, const 
             break;
         }
     }
+    for (int i = 0; i < elementCount; i++) {
+        switch (var->type & VALUE_TYPE_MASK) {
+        case VAR_UINT8:
+            result = result && ((uint8_t *)ptr)[i] == ((uint8_t *)ptrDefault)[i];
+            break;
 
-    return result;
+        case VAR_INT8:
+            result = result && ((int8_t *)ptr)[i] == ((int8_t *)ptrDefault)[i];
+            break;
+
+        case VAR_UINT16:
+        case VAR_INT16:
+            result = result && ((int16_t *)ptr)[i] == ((int16_t *)ptrDefault)[i];
+            break;
+        }
+    }
+    return (result);
 }
 
 static uint8_t getPidProfileIndexToUse()
@@ -3527,7 +3546,7 @@ static void cliStatus(char *cmdline)
     cliPrintf(", Vref=%d.%2dV, Core temp=%ddegC", vrefintMv / 1000, (vrefintMv % 1000) / 10, coretemp);
 #endif
 
-#if defined(USE_SENSOR_NAMES)
+#if defined(USE_SENSOR_NAMES) && !defined(USE_GYRO_IMUF9001)
     const uint32_t detectedSensorsMask = sensorsMask();
     for (uint32_t i = 0; ; i++) {
         if (sensorTypeNames[i] == NULL) {
@@ -3543,6 +3562,12 @@ static void cliStatus(char *cmdline)
             }
         }
     }
+#else 
+    #if defined(USE_GYRO_IMUF9001)
+    UNUSED(sensorHardwareNames);
+    UNUSED(sensorTypeNames);
+    cliPrintf(" | IMU-F Version: %lu", imufCurrentVersion);
+    #endif
 #endif /* USE_SENSOR_NAMES */
     cliPrintLinefeed();
 
@@ -3615,8 +3640,8 @@ static void cliTasks(char *cmdline)
                 taskFrequency = taskInfo.latestDeltaTime == 0 ? 0 : (int)(1000000.0f / ((float)taskInfo.latestDeltaTime));
                 cliPrintf("%02d - (%15s) ", taskId, taskInfo.taskName);
             }
-            const int maxLoad = taskInfo.maxExecutionTime == 0 ? 0 :(taskInfo.maxExecutionTime * taskFrequency + 5000) / 1000;
-            const int averageLoad = taskInfo.averageExecutionTime == 0 ? 0 : (taskInfo.averageExecutionTime * taskFrequency + 5000) / 1000;
+            const int maxLoad = taskInfo.maxExecutionTime == 0 ? 0 :(taskInfo.maxExecutionTime * taskFrequency) / 1000;
+            const int averageLoad = taskInfo.averageExecutionTime == 0 ? 0 : (taskInfo.averageExecutionTime * taskFrequency) / 1000;
             if (taskId != TASK_SERIAL) {
                 maxLoadSum += maxLoad;
                 averageLoadSum += averageLoad;
@@ -3656,49 +3681,10 @@ static void cliVersion(char *cmdline)
         shortGitRevision,
         MSP_API_VERSION_STRING
     );
+#ifdef USE_GYRO_IMUF9001
+    cliPrintLinef("# IMU-F Version: %lu", imufCurrentVersion);
+#endif
 }
-
-#ifdef USE_RC_SMOOTHING_FILTER
-static void cliRcSmoothing(char *cmdline)
-{
-    UNUSED(cmdline);
-    cliPrint("# RC Smoothing Type: ");
-    if (rxConfig()->rc_smoothing_type == RC_SMOOTHING_TYPE_FILTER) {
-        cliPrintLine("FILTER");
-        uint16_t avgRxFrameMs = rcSmoothingGetValue(RC_SMOOTHING_VALUE_AVERAGE_FRAME);
-        if (rcSmoothingAutoCalculate()) {
-            cliPrint("# Detected RX frame rate: ");
-            if (avgRxFrameMs == 0) {
-                cliPrintLine("NO SIGNAL");
-            } else {
-                cliPrintLinef("%d.%dms", avgRxFrameMs / 1000, avgRxFrameMs % 1000);
-            }
-        }
-        cliPrint("# Input filter type: ");
-        cliPrintLinef(lookupTables[TABLE_RC_SMOOTHING_INPUT_TYPE].values[rxConfig()->rc_smoothing_input_type]);
-        cliPrintf("# Active input cutoff: %dhz ", rcSmoothingGetValue(RC_SMOOTHING_VALUE_INPUT_ACTIVE));
-        if (rxConfig()->rc_smoothing_input_cutoff == 0) {
-            cliPrintLine("(auto)");
-        } else {
-            cliPrintLine("(manual)");
-        }
-        cliPrint("# Derivative filter type: ");
-        cliPrintLinef(lookupTables[TABLE_RC_SMOOTHING_DERIVATIVE_TYPE].values[rxConfig()->rc_smoothing_derivative_type]);
-        cliPrintf("# Active derivative cutoff: %dhz (", rcSmoothingGetValue(RC_SMOOTHING_VALUE_DERIVATIVE_ACTIVE));
-        if (rxConfig()->rc_smoothing_derivative_type == RC_SMOOTHING_DERIVATIVE_OFF) {
-            cliPrintLine("off)");
-        } else {
-            if (rxConfig()->rc_smoothing_derivative_cutoff == 0) {
-                cliPrintLine("auto)");
-            } else {
-                cliPrintLine("manual)");
-            }
-        }
-    } else {
-        cliPrintLine("INTERPOLATION");
-    }
-}
-#endif // USE_RC_SMOOTHING_FILTER
 
 #if defined(USE_RESOURCE_MGMT)
 
@@ -4405,6 +4391,14 @@ typedef struct {
 }
 #endif
 
+#ifdef USE_GYRO_IMUF9001
+static void cliReportImufErrors(char *cmdline);
+static void cliImufUpdate(char *cmdline);
+#endif
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline);
+#endif
+
 static void cliHelp(char *cmdline);
 
 // should be sorted a..z for bsearch()
@@ -4461,6 +4455,13 @@ const clicmd_t cmdTable[] = {
 #if defined(USE_GYRO_REGISTER_DUMP) && !defined(SIMULATOR_BUILD)
     CLI_COMMAND_DEF("gyroregisters", "dump gyro config registers contents", NULL, cliDumpGyroRegisters),
 #endif
+#ifdef USE_GYRO_IMUF9001
+    CLI_COMMAND_DEF("reportimuferrors", "report imu-f comm errors", NULL, cliReportImufErrors),
+    CLI_COMMAND_DEF("imufupdate", "update imu-f's firmware", NULL, cliImufUpdate),
+#endif
+#ifdef MSD_ADDRESS
+    CLI_COMMAND_DEF("msd", "boot into USB drive mode to download log files", NULL, cliMsd),
+#endif
     CLI_COMMAND_DEF("help", NULL, NULL, cliHelp),
 #ifdef USE_LED_STRIP
     CLI_COMMAND_DEF("led", "configure leds", NULL, cliLed),
@@ -4487,9 +4488,6 @@ const clicmd_t cmdTable[] = {
 #endif
     CLI_COMMAND_DEF("profile", "change profile", "[<index>]", cliProfile),
     CLI_COMMAND_DEF("rateprofile", "change rate profile", "[<index>]", cliRateProfile),
-#ifdef USE_RC_SMOOTHING_FILTER
-    CLI_COMMAND_DEF("rc_smoothing_info", "show rc_smoothing operational settings", NULL, cliRcSmoothing),
-#endif // USE_RC_SMOOTHING_FILTER
 #ifdef USE_RESOURCE_MGMT
     CLI_COMMAND_DEF("resource", "show/set resources", NULL, cliResource),
 #endif
@@ -4528,6 +4526,55 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("vtx", "vtx channels on switch", NULL, cliVtx),
 #endif
 };
+
+#ifdef USE_GYRO_IMUF9001
+static void cliReportImufErrors(char *cmdline)
+{
+    UNUSED(cmdline);
+    cliPrintf("Current Comm Errors: %lu", crcErrorCount);
+    cliPrintLinefeed();
+}
+
+static void cliImufUpdate(char *cmdline)
+{
+    UNUSED(cmdline);
+
+    if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("I muff, you muff, we all muff for IMU-F!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
+}
+#endif
+
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline)
+{
+    UNUSED(cmdline);
+
+    if( (*((__IO uint32_t *)MSD_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("Loading as USB drive!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFF0)) = 0xF431FA11;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
+}
+#endif
 
 static void cliHelp(char *cmdline)
 {

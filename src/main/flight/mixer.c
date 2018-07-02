@@ -363,11 +363,16 @@ bool mixerIsTricopter(void)
 
 bool mixerIsOutputSaturated(int axis, float errorRate)
 {
+    #ifndef USE_QUAD_MIXER_ONLY
     if (axis == FD_YAW && mixerIsTricopter()) {
         return mixerTricopterIsServoSaturated(errorRate);
     }
-
-    return motorMixRange >= 1.0f;
+    #else
+        (void)axis;
+        (void)errorRate;
+        return motorMixRange >= 1.0f;
+    #endif
+    return false;
 }
 
 // All PWM motor scaling is done to standard PWM range of 1000-2000 for easier tick conversion with legacy code / configurator
@@ -423,9 +428,11 @@ void mixerInit(mixerMode_e mixerMode)
     currentMixerMode = mixerMode;
 
     initEscEndpoints();
+    #ifndef USE_QUAD_MIXER_ONLY
     if (mixerIsTricopter()) {
         mixerTricopterInit();
     }
+    #endif
 }
 
 #ifndef USE_QUAD_MIXER_ONLY
@@ -492,7 +499,7 @@ void mixerResetDisarmedMotors(void)
     }
 }
 
-void writeMotors(void)
+void FAST_CODE writeMotors(void)
 {
     if (pwmAreMotorsEnabled()) {
         for (int i = 0; i < motorCount; i++) {
@@ -696,9 +703,11 @@ static void applyMixToMotors(float motorMix[MAX_SUPPORTED_MOTORS])
     // roll/pitch/yaw. This could move throttle down, but also up for those low throttle flips.
     for (int i = 0; i < motorCount; i++) {
         float motorOutput = motorOutputMin + (motorOutputRange * (motorOutputMixSign * motorMix[i] + throttle * currentMixer[i].throttle));
+        #ifndef USE_QUAD_MIXER_ONLY
         if (mixerIsTricopter()) {
             motorOutput += mixerTricopterMotorCorrection(i);
         }
+        #endif
         if (failsafeIsActive()) {
             if (isMotorProtocolDshot()) {
                 motorOutput = (motorOutput < motorRangeMin) ? disarmMotorOutput : motorOutput; // Prevent getting into special reserved range
@@ -739,7 +748,7 @@ float applyThrottleLimit(float throttle)
     return throttle;
 }
 
-FAST_CODE_NOINLINE void mixTable(timeUs_t currentTimeUs, uint8_t vbatPidCompensation)
+FAST_CODE void mixTable(timeUs_t currentTimeUs, uint8_t vbatPidCompensation)
 {
     if (isFlipOverAfterCrashMode()) {
         applyFlipOverAfterCrashModeToMotors();
@@ -755,18 +764,10 @@ FAST_CODE_NOINLINE void mixTable(timeUs_t currentTimeUs, uint8_t vbatPidCompensa
     const float scaledAxisPidPitch =
         constrainf(pidData[FD_PITCH].Sum, -currentPidProfile->pidSumLimit, currentPidProfile->pidSumLimit) / PID_MIXER_SCALING;
 
-    uint16_t yawPidSumLimit = currentPidProfile->pidSumLimitYaw;
-
-#ifdef USE_YAW_SPIN_RECOVERY
-    const bool yawSpinDetected = gyroYawSpinDetected();
-    if (yawSpinDetected) {
-        yawPidSumLimit = PIDSUM_LIMIT_MAX;   // Set to the maximum limit during yaw spin recovery to prevent limiting motor authority
-    }
-#endif // USE_YAW_SPIN_RECOVERY
+    uint16_t yawPidSumLimit = currentPidProfile->pidSumLimit;
 
     float scaledAxisPidYaw =
         constrainf(pidData[FD_YAW].Sum, -yawPidSumLimit, yawPidSumLimit) / PID_MIXER_SCALING;
-
     if (!mixerConfig()->yaw_motors_reversed) {
         scaledAxisPidYaw = -scaledAxisPidYaw;
     }
@@ -778,14 +779,6 @@ FAST_CODE_NOINLINE void mixTable(timeUs_t currentTimeUs, uint8_t vbatPidCompensa
     if (currentControlRateProfile->throttle_limit_type != THROTTLE_LIMIT_TYPE_OFF) {
         throttle = applyThrottleLimit(throttle);
     }
-
-#ifdef USE_YAW_SPIN_RECOVERY
-    // 50% throttle provides the maximum authority for yaw recovery when airmode is not active.
-    // When airmode is active the throttle setting doesn't impact recovery authority.
-    if (yawSpinDetected && !isAirmodeActive()) {
-        throttle = 0.5f;   // 
-    }
-#endif // USE_YAW_SPIN_RECOVERY
 
     // Find roll/pitch/yaw desired output
     float motorMix[MAX_SUPPORTED_MOTORS];
@@ -805,21 +798,6 @@ FAST_CODE_NOINLINE void mixTable(timeUs_t currentTimeUs, uint8_t vbatPidCompensa
         }
         motorMix[i] = mix;
     }
-
-#if defined(USE_THROTTLE_BOOST)
-    if (throttleBoost > 0.0f) {
-        float throttlehpf = throttle - pt1FilterApply(&throttleLpf, throttle);
-        throttle = constrainf(throttle + throttleBoost * throttlehpf, 0.0f, 1.0f);
-    }
-#endif
-
-#ifdef USE_GPS_RESCUE
-    // If gps rescue is active then override the throttle. This prevents things
-    // like throttle boost or throttle limit from negatively affecting the throttle.
-    if (FLIGHT_MODE(GPS_RESCUE_MODE)) {
-        throttle = gpsRescueGetThrottle();
-    }
-#endif
 
     motorMixRange = motorMixMax - motorMixMin;
     if (motorMixRange > 1.0f) {

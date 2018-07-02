@@ -205,7 +205,7 @@ void pwmCompleteDshotMotorUpdate(uint8_t motorCount);
 bool pwmDshotCommandIsQueued(void);
 bool pwmDshotCommandIsProcessing(void);
 uint8_t pwmGetDshotCommand(uint8_t index);
-bool pwmDshotCommandOutputIsEnabled(uint8_t motorCount);
+bool pwmProcessDshotCommand(uint8_t motorCount);
 
 #endif
 

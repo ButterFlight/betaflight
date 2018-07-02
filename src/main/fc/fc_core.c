@@ -39,6 +39,7 @@
 #include "pg/pg_ids.h"
 #include "pg/rx.h"
 
+#include "drivers/dma_spi.h"
 #include "drivers/light_led.h"
 #include "drivers/sound_beeper.h"
 #include "drivers/system.h"
@@ -130,7 +131,6 @@ static bool flipOverAfterCrashMode = false;
 
 static uint32_t disarmAt;     // Time of automatic disarm when "Don't spin the motors when armed" is enabled and auto_disarm_delay is nonzero
 
-bool isRXDataNew;
 static int lastArmingDisabledReason = 0;
 static timeUs_t lastDisarmTimeUs;
 static bool tryingToArm;
@@ -169,12 +169,12 @@ void applyAndSaveAccelerometerTrimsDelta(rollAndPitchTrims_t *rollAndPitchTrimsD
 
 static bool isCalibrating(void)
 {
+    
 #ifdef USE_BARO
     if (sensors(SENSOR_BARO) && !isBaroCalibrationComplete()) {
         return true;
     }
 #endif
-
     // Note: compass calibration is handled completely differently, outside of the main loop, see f.CALIBRATE_MAG
 
     return (!accIsCalibrationComplete() && sensors(SENSOR_ACC)) || (!isGyroCalibrationComplete());
@@ -386,7 +386,9 @@ void tryArm(void)
         if (isModeActivationConditionPresent(BOXPREARM)) {
             ENABLE_ARMING_FLAG(WAS_ARMED_WITH_PREARM);
         }
-        imuQuaternionHeadfreeOffsetSet();
+        if (sensors(SENSOR_ACC)){
+            imuQuaternionHeadfreeOffsetSet();
+        }
 
         disarmAt = millis() + armingConfig()->auto_disarm_delay * 1000;   // start disarm timeout, will be extended when throttle is nonzero
 
@@ -394,11 +396,14 @@ void tryArm(void)
 
         //beep to indicate arming
 #ifdef USE_GPS
-        if (feature(FEATURE_GPS) && STATE(GPS_FIX) && gpsSol.numSat >= 5) {
-            beeper(BEEPER_ARMING_GPS_FIX);
-        } else {
+        if(!feature(FEATURE_GPS)) 
+        {
             beeper(BEEPER_ARMING);
-        }
+        } 
+        else if(STATE(GPS_FIX) && gpsSol.numSat >= 5) 
+        {
+            beeper(BEEPER_ARMING_GPS_FIX);
+        } 
 #else
         beeper(BEEPER_ARMING);
 #endif
@@ -770,11 +775,8 @@ bool processRx(timeUs_t currentTimeUs)
 
     if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) {
         LED1_ON;
-        // increase frequency of attitude task to reduce drift when in angle or horizon mode
-        rescheduleTask(TASK_ATTITUDE, TASK_PERIOD_HZ(500));
     } else {
         LED1_OFF;
-        rescheduleTask(TASK_ATTITUDE, TASK_PERIOD_HZ(100));
     }
 
     if (!IS_RC_MODE_ACTIVE(BOXPREARM) && ARMING_FLAG(WAS_ARMED_WITH_PREARM)) {
@@ -853,8 +855,7 @@ bool processRx(timeUs_t currentTimeUs)
 
 static FAST_CODE void subTaskPidController(timeUs_t currentTimeUs)
 {
-    uint32_t startTime = 0;
-    if (debugMode == DEBUG_PIDLOOP) {startTime = micros();}
+    uint32_t startTime = micros();
     // PID - note this is function pointer set by setPIDController()
     pidController(currentPidProfile, &accelerometerConfig()->accelerometerTrims, currentTimeUs);
     DEBUG_SET(DEBUG_PIDLOOP, 1, micros() - startTime);
@@ -904,7 +905,7 @@ static FAST_CODE void subTaskPidController(timeUs_t currentTimeUs)
 #endif
 }
 
-static FAST_CODE_NOINLINE void subTaskPidSubprocesses(timeUs_t currentTimeUs)
+static FAST_CODE void subTaskPidSubprocesses(timeUs_t currentTimeUs)
 {
     uint32_t startTime = 0;
     if (debugMode == DEBUG_PIDLOOP) {
@@ -966,7 +967,7 @@ static FAST_CODE void subTaskMotorUpdate(timeUs_t currentTimeUs)
     DEBUG_SET(DEBUG_PIDLOOP, 2, micros() - startTime);
 }
 
-static FAST_CODE_NOINLINE void subTaskRcCommand(timeUs_t currentTimeUs)
+FAST_CODE void subTaskRcCommand(timeUs_t currentTimeUs)
 {
     UNUSED(currentTimeUs);
 
@@ -986,6 +987,10 @@ static FAST_CODE_NOINLINE void subTaskRcCommand(timeUs_t currentTimeUs)
         resetYawAxis();
     }
 
+    if ((FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE)) && throttleCorrectionConfig()->throttle_correction_value) {
+        rcCommand[THROTTLE] += calculateThrottleAngleCorrection(throttleCorrectionConfig()->throttle_correction_value);
+    }
+
     processRcCommand();
 
 }
@@ -993,31 +998,39 @@ static FAST_CODE_NOINLINE void subTaskRcCommand(timeUs_t currentTimeUs)
 // Function for loop trigger
 FAST_CODE void taskMainPidLoop(timeUs_t currentTimeUs)
 {
-    static uint32_t pidUpdateCounter = 0;
+    static uint32_t pidUpdateCountdown = 0;
+
+#ifdef USE_DMA_SPI_DEVICE
+    dmaSpiDeviceDataReady = false;
+#endif
 
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_GYROPID_SYNC)
     if (lockMainPID() != 0) return;
 #endif
+    //__disable_irq();
 
     // DEBUG_PIDLOOP, timings for:
     // 0 - gyroUpdate()
     // 1 - subTaskPidController()
     // 2 - subTaskMotorUpdate()
     // 3 - subTaskPidSubprocesses()
+    //when using dma, this shouldn't run until the dma spi transfer flag is complete
+    //gyroUpdateSensor in gyro.c is called by gyroUpdate
     gyroUpdate(currentTimeUs);
     DEBUG_SET(DEBUG_PIDLOOP, 0, micros() - currentTimeUs);
 
-    if (pidUpdateCounter++ % pidConfig()->pid_process_denom == 0) {
-        subTaskRcCommand(currentTimeUs);
+    if (pidUpdateCountdown) {
+        pidUpdateCountdown--;
+    } else {
+        pidUpdateCountdown = pidConfig()->pid_process_denom - 1;
         subTaskPidController(currentTimeUs);
         subTaskMotorUpdate(currentTimeUs);
         subTaskPidSubprocesses(currentTimeUs);
     }
 
-    if (debugMode == DEBUG_CYCLETIME) {
-        debug[0] = getTaskDeltaTime(TASK_SELF);
-        debug[1] = averageSystemLoadPercent;
-    }
+    DEBUG_SET(DEBUG_CYCLETIME, 0, getTaskDeltaTime(TASK_SELF));
+    DEBUG_SET(DEBUG_CYCLETIME, 1, averageSystemLoadPercent);
+    //__enable_irq();
 }
 
 

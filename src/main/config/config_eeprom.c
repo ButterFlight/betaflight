@@ -256,14 +256,21 @@ static bool writeSettingsToEEPROM(void)
 void writeConfigToEEPROM(void)
 {
     bool success = false;
+    #ifndef SITL    
+    __disable_irq();   
+    #endif //SITL
+     
     // write it
-    for (int attempt = 0; attempt < 3 && !success; attempt++) {
+    for (int attempt = 0; attempt < 5 && !success; attempt++) {
         if (writeSettingsToEEPROM()) {
-            success = true;
+            success = isEEPROMStructureValid();
         }
     }
+    #ifndef SITL        
+    __enable_irq();
+    #endif //SITL
 
-    if (success && isEEPROMVersionValid() && isEEPROMStructureValid()) {
+    if (success && isEEPROMVersionValid()) {
         return;
     }
 

@@ -90,10 +90,8 @@ void setDefaultTestSettings(void) {
     pidProfile->pid[PID_LEVEL] =  { 50, 50, 75 };
 
     pidProfile->pidSumLimit = PIDSUM_LIMIT;
-    pidProfile->pidSumLimitYaw = PIDSUM_LIMIT_YAW;
     pidProfile->yaw_lowpass_hz = 0;
     pidProfile->dterm_lowpass_hz = 100;
-    pidProfile->dterm_lowpass2_hz = 0;
     pidProfile->dterm_notch_hz = 260;
     pidProfile->dterm_notch_cutoff = 160;
     pidProfile->dterm_filter_type = FILTER_BIQUAD;
@@ -119,9 +117,6 @@ void setDefaultTestSettings(void) {
     pidProfile->horizon_tilt_expert_mode = false;
     pidProfile->crash_limit_yaw = 200;
     pidProfile->itermLimit = 150;
-    pidProfile->throttle_boost = 0;
-    pidProfile->throttle_boost_cutoff = 15;
-    pidProfile->iterm_rotation = false;
 
     gyro.targetLooptime = 4000;
 }

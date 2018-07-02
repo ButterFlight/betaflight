@@ -86,6 +86,22 @@ Reset_Handler:
   // Defined in C code
   bl checkForBootLoaderRequest
 
+  // Check for imufUpdate reboot
+  ldr r0, =0x2001FFEC         // rs2k
+  ldr r1, =0xF431FA77         // rs2k
+  ldr r2, [r0, #0]            // rs2k
+  str r0, [r0, #0]            // rs2k
+  cmp r2, r1                  // rs2k
+  beq rebootUpdater           // rs2k
+
+  // Check for msd reboot
+  ldr r0, =0x2001FFF0         // rs2k
+  ldr r1, =0xF431FA11         // rs2k
+  ldr r2, [r0, #0]            // rs2k
+  str r0, [r0, #0]            // rs2k
+  cmp r2, r1                  // rs2k
+  beq rebootMsd  
+  
 /* Copy the data segment initializers from flash to SRAM */  
   movs  r1, #0
   b  LoopCopyDataInit

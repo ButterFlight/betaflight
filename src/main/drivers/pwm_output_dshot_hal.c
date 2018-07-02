@@ -95,7 +95,7 @@ FAST_CODE void pwmCompleteDshotMotorUpdate(uint8_t motorCount)
 
     /* If there is a dshot command loaded up, time it correctly with motor update*/
     if (pwmDshotCommandIsQueued()) {
-        if (!pwmDshotCommandOutputIsEnabled(motorCount)) {
+        if (!pwmProcessDshotCommand(motorCount)) {
             return;
         }
     }
@@ -144,6 +144,7 @@ static void motor_DMA_IRQHandler(dmaChannelDescriptor_t* descriptor)
 
 void pwmDshotMotorHardwareConfig(const timerHardware_t *timerHardware, uint8_t motorIndex, motorPwmProtocolTypes_e pwmProtocolType, uint8_t output)
 {
+    memset(&dmaMotors, 0, sizeof(dmaMotors));
     DMA_Stream_TypeDef *dmaRef;
 
 #ifdef USE_DSHOT_DMAR
