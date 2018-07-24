@@ -430,31 +430,19 @@ float butteredPids(const pidProfile_t *pidProfile, int axis, float errorRate, fl
     (void)(pidProfile);
     (void)(currentPidSetpoint);
     // -----calculate P component
-#if defined(USE_RF_TPA)
     axisPID_P[axis] = (Kp[axis] * errorRate) * getThrottlePIDAttenuationKp();
-#else
-    axisPID_P[axis] = (Kp[axis] * errorRate) * getThrottlePIDAttenuation();
-#endif
     // -----calculate I component
     float iterm = constrainf(axisPID_I[axis] + (Ki[axis] * errorRate) * dynCi, -itermLimit, itermLimit);
     if (!mixerIsOutputSaturated(axis, errorRate) || ABS(iterm) < ABS(axisPID_I[axis])) {
         // Only increase ITerm if output is not saturated
-#if defined(USE_RF_TPA)
         axisPID_I[axis] = iterm * getThrottlePIDAttenuationKi();
-#else
-        axisPID_I[axis] = iterm;
-#endif
     }
 
     // -----calculate D component
     // use measurement and apply filters. mmmm gimme that butter.
     float dDelta = dtermLpfApplyFn(dtermFilterLpf[axis], -((gyro.gyroADCf[axis] - previousRateError[axis]) * iDT));
     previousRateError[axis] = gyro.gyroADCf[axis];
-#if defined(USE_RF_TPA)
     axisPID_D[axis] = Kd[axis] * (dDelta) * getThrottlePIDAttenuationKd();
-#else
-    axisPID_D[axis] = Kd[axis] * (dDelta) * getThrottlePIDAttenuation();
-#endif
     axisPIDSum[axis] = axisPID_P[axis] + axisPID_I[axis] + axisPID_D[axis];
     return dDelta;
 }
@@ -469,20 +457,13 @@ float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, flo
     // b = 1 and only c (dtermSetpointWeight) can be tuned (amount derivative on measurement or error).
 
     // -----calculate P component and add Dynamic Part based on stick input
-#if defined(USE_RF_TPA)
+
     axisPID_P[axis] = Kp[axis] * errorRate * getThrottlePIDAttenuationKp();
-#else
-    axisPID_P[axis] = Kp[axis] * errorRate * getThrottlePIDAttenuation();
-#endif
     // -----calculate I component
     float ITermNew = constrainf(axisPID_I[axis] + Ki[axis] * errorRate * dynCi, -itermLimit, itermLimit);
     if (!mixerIsOutputSaturated(axis, errorRate) || ABS(ITermNew) < ABS(axisPID_I[axis])) {
         // Only increase ITerm if output is not saturated
-#if defined(USE_RF_TPA)
         axisPID_I[axis] = ITermNew * getThrottlePIDAttenuationKi();
-#else
-        axisPID_I[axis] = ITermNew;
-#endif
     }
 
     // -----calculate D component
@@ -512,11 +493,7 @@ float classicPids(const pidProfile_t *pidProfile, int axis, float errorRate, flo
             break;
     }
     previousRateError[axis] = ornD;
-#if defined(USE_RF_TPA)
     axisPID_D[axis] = Kd[axis] * dDelta * getThrottlePIDAttenuationKd();
-#else
-    axisPID_D[axis] = Kd[axis] * dDelta * getThrottlePIDAttenuation();
-#endif
     axisPIDSum[axis] = axisPID_P[axis] + axisPID_I[axis] + axisPID_D[axis];
     return dDelta;
 }

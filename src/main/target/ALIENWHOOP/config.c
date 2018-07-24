@@ -175,9 +175,6 @@ void targetConfiguration(void)
         controlRateConfig->rates[FD_YAW] = 0;
 
         /* Throttle PID Attenuation (TPA) */
-        controlRateConfig->dynThrPID = 0; // tpa_rate off
-        controlRateConfig->tpa_breakpoint = 1600;
-
         controlRateConfig->thrExpo8 = 20; // 20% throttle expo
     }
 }

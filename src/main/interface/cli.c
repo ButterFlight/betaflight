@@ -1541,12 +1541,11 @@ static void cliServo(char *cmdline)
 }
 #endif
 
-#ifdef USE_RF_TPA
-static void printRfTPA(void)
+static void printTPA(void)
 {
     cliPrintf("tpakp ");
-    for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i == ATTENUATION_CURVE_SIZE - 1) {
+    for (int i = 0; i < TPA_CURVE_SIZE; i++) {
+        if (i == TPA_CURVE_SIZE - 1) {
             cliPrintf("%d", currentControlRateProfile->tpaKpCurve[i]);
         } else {
             cliPrintf("%d=", currentControlRateProfile->tpaKpCurve[i]);
@@ -1555,8 +1554,8 @@ static void printRfTPA(void)
     cliPrintLinefeed();
 
     cliPrintf("tpaki ");
-    for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i == ATTENUATION_CURVE_SIZE - 1) {
+    for (int i = 0; i < TPA_CURVE_SIZE; i++) {
+        if (i == TPA_CURVE_SIZE - 1) {
             cliPrintf("%d", currentControlRateProfile->tpaKiCurve[i]);
         } else {
             cliPrintf("%d=", currentControlRateProfile->tpaKiCurve[i]);
@@ -1565,8 +1564,8 @@ static void printRfTPA(void)
     cliPrintLinefeed();
 
     cliPrintf("tpakd ");
-    for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i == ATTENUATION_CURVE_SIZE - 1) {
+    for (int i = 0; i < TPA_CURVE_SIZE; i++) {
+        if (i == TPA_CURVE_SIZE - 1) {
             cliPrintf("%d", currentControlRateProfile->tpaKdCurve[i]);
         } else {
             cliPrintf("%d=", currentControlRateProfile->tpaKdCurve[i]);
@@ -1574,20 +1573,20 @@ static void printRfTPA(void)
     }
     cliPrintLinefeed();
 }
-static void printRfTPAUsage(void)
+static void printTPAUsage(void)
 {
-    cliPrintf("Usage: rftpa [kp|ki|kd] 100=100=100=100=100=100=100=100=100");
+    cliPrintf("Usage: TPA [kp|ki|kd] 100=100=100=100=100=100=100=100=100");
     cliPrintLinefeed();
 }
 
-static void cliRfTPA(char *cmdLine)
+static void cliTPA(char *cmdLine)
 {
     enum { KP = 0, KI, KD };
     int type = -1;
     int len = strlen(cmdLine);
 
     if (len == 0) {
-        printRfTPA();
+        printTPA();
         return;
     } else {
         if (strncasecmp(cmdLine, "kp", 2) == 0) {
@@ -1600,7 +1599,7 @@ static void cliRfTPA(char *cmdLine)
             type = KD;
         }
         else {
-            printRfTPAUsage();
+            printTPAUsage();
             return;
         }
 
@@ -1624,7 +1623,7 @@ static void cliRfTPA(char *cmdLine)
                 p = strtok (NULL, "=");
             }
             if (i < 9) {
-                printRfTPAUsage();
+                printTPAUsage();
                 return;
             }
             else {
@@ -1633,29 +1632,27 @@ static void cliRfTPA(char *cmdLine)
                         memcpy(currentControlRateProfile->tpaKpCurve, tempCurve, sizeof(tempCurve));
                         cliPrintf("New TPA Saved");
                         cliPrintLinefeed();
-                        printRfTPA();
+                        printTPA();
                         break;
                     case KI:
                         memcpy(currentControlRateProfile->tpaKiCurve, tempCurve, sizeof(tempCurve));
                         cliPrintf("New TPA Saved");
                         cliPrintLinefeed();
-                        printRfTPA();
+                        printTPA();
                         break;
                     case KD:
                         memcpy(currentControlRateProfile->tpaKdCurve, tempCurve, sizeof(tempCurve));
                         cliPrintf("New TPA Saved");
                         cliPrintLinefeed();
-                        printRfTPA();
+                        printTPA();
                         break;
                     default:
-                        printRfTPAUsage();
+                        printTPAUsage();
                 }
             }
         }
     }
 }
-#endif
-
 
 #ifdef USE_SERVOS
 static void printServoMix(uint8_t dumpMask, const servoMixer_t *customServoMixers, const servoMixer_t *defaultCustomServoMixers)
@@ -3860,9 +3857,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("reportimuferrors", "report imu-f comm errors", NULL, cliReportImufErrors),
     CLI_COMMAND_DEF("imufupdate", "update imu-f's firmware", NULL, cliImufUpdate),
 #endif
-#ifdef USE_RF_TPA
-    CLI_COMMAND_DEF("rftpa", "set rf1 tpa", "[kp, ki, kd]", cliRfTPA),
-#endif
+    CLI_COMMAND_DEF("tpa", "set 9-point tpa curve", "[kp, ki, kd]", cliTPA),
 #ifdef MSD_ADDRESS
     CLI_COMMAND_DEF("msd", "boot into USB drive mode to download log files", NULL, cliMsd),
 #endif
