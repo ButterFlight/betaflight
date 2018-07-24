@@ -36,8 +36,7 @@ void resetYawAxis(void);
 void initRcProcessing(void);
 bool isMotorsReversed(void);
 
-#if defined(USE_RF_TPA)
+
 float getThrottlePIDAttenuationKp(void);
 float getThrottlePIDAttenuationKi(void);
 float getThrottlePIDAttenuationKd(void);
-#endif
