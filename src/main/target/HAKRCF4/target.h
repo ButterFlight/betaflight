@@ -74,7 +74,7 @@
 #define USE_BARO_MS5611
 #define USE_BARO_QMP6988
 #define BARO_I2C_INSTANCE       (I2CDEV_1)
-#define DEFAULT_BARO_BMP280
+#define DEFAULT_BARO_QMP6988
 
 #define USE_SPI_DEVICE_2
 #define SPI2_SCK_PIN            PB13
