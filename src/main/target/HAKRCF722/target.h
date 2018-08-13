@@ -36,7 +36,6 @@
 #define USE_BARO_BMP085
 #define USE_BARO_BMP280
 #define USE_BARO_MS5611
-#define USE_BARO_QMP6988
 #define BARO_I2C_INSTANCE       (I2CDEV_1)
 #define DEFAULT_BARO_BMP280
 
@@ -123,9 +122,6 @@
 
 #define SERIAL_PORT_COUNT       8
 
-#define USE_BEEPER
-#define BEEPER_PIN              PC14
-#define BEEPER_INVERTED
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
