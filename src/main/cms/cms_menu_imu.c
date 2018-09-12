@@ -396,6 +396,9 @@ static uint16_t gyroConfig_imuf_w;
 static uint16_t gyroConfig_imuf_pitch_lpf_cutoff_hz;
 static uint16_t gyroConfig_imuf_roll_lpf_cutoff_hz;
 static uint16_t gyroConfig_imuf_yaw_lpf_cutoff_hz;
+static uint8_t gyroConfig_imuf_roll_af;
+static uint8_t gyroConfig_imuf_pitch_af;
+static uint8_t gyroConfig_imuf_yaw_af;
 #endif
 
 #if defined(USE_GYRO_IMUF9001)
@@ -408,7 +411,10 @@ static long cmsx_menuImuf_onEnter(void)
     gyroConfig_imuf_pitch_lpf_cutoff_hz = gyroConfig()->imuf_pitch_lpf_cutoff_hz;
     gyroConfig_imuf_roll_lpf_cutoff_hz = gyroConfig()->imuf_roll_lpf_cutoff_hz;
     gyroConfig_imuf_yaw_lpf_cutoff_hz = gyroConfig()->imuf_yaw_lpf_cutoff_hz;
-
+    gyroConfig_imuf_roll_af = gyroConfigMutable()->imuf_roll_af;
+    gyroConfig_imuf_pitch_af = gyroConfigMutable()->imuf_pitch_af;
+    gyroConfig_imuf_yaw_af = gyroConfigMutable()->imuf_yaw_af;
+    
     return 0;
 }
 #endif
@@ -422,9 +428,12 @@ static long cmsx_menuImuf_onExit(const OSD_Entry *self)
     gyroConfigMutable()->imuf_pitch_q = gyroConfig_imuf_pitch_q;
     gyroConfigMutable()->imuf_yaw_q = gyroConfig_imuf_yaw_q;
     gyroConfigMutable()->imuf_w = gyroConfig_imuf_w;
-    gyroConfigMutable()->imuf_pitch_lpf_cutoff_hz = gyroConfig_imuf_pitch_lpf_cutoff_hz;
     gyroConfigMutable()->imuf_roll_lpf_cutoff_hz = gyroConfig_imuf_roll_lpf_cutoff_hz;
+    gyroConfigMutable()->imuf_pitch_lpf_cutoff_hz = gyroConfig_imuf_pitch_lpf_cutoff_hz;
     gyroConfigMutable()->imuf_yaw_lpf_cutoff_hz = gyroConfig_imuf_yaw_lpf_cutoff_hz;
+    gyroConfigMutable()->imuf_roll_af = gyroConfig_imuf_roll_af;
+    gyroConfigMutable()->imuf_pitch_af = gyroConfig_imuf_pitch_af;
+    gyroConfigMutable()->imuf_yaw_af = gyroConfig_imuf_yaw_af;
 
     return 0;
 }
@@ -442,7 +451,9 @@ static OSD_Entry cmsx_menuImufEntries[] =
     { "ROLL LPF",  OME_UINT16, NULL, &(OSD_UINT16_t) { &gyroConfig_imuf_roll_lpf_cutoff_hz,  0, 450,    1 }, 0 },
     { "PITCH LPF", OME_UINT16, NULL, &(OSD_UINT16_t) { &gyroConfig_imuf_pitch_lpf_cutoff_hz, 0, 450,    1 }, 0 },
     { "YAW LPF",   OME_UINT16, NULL, &(OSD_UINT16_t) { &gyroConfig_imuf_yaw_lpf_cutoff_hz,   0, 450,    1 }, 0 },
-
+    { "ROLL AF",   OME_TAB,    NULL, &(OSD_TAB_t)    { &gyroConfig_imuf_roll_af,             0, cms_offOnLabels}, 0 },
+    { "PITCH AF",  OME_TAB,    NULL, &(OSD_TAB_t)    { &gyroConfig_imuf_pitch_af,            0, cms_offOnLabels}, 0 },
+    { "YAW AF",    OME_TAB,    NULL, &(OSD_TAB_t)    { &gyroConfig_imuf_yaw_af,              0, cms_offOnLabels}, 0 },
     
     { "BACK",        OME_Back,            NULL,   NULL,             0},
     { "SAVE&REBOOT", OME_OSD_Exit, cmsMenuExit,   (void *)CMS_EXIT_SAVEREBOOT, 0},
