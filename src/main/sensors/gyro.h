@@ -28,6 +28,12 @@
 #include "drivers/sensor.h"
 
 #include "pg/pg.h"
+#include "common/maths.h"
+#include "pg/pg.h"
+#include "drivers/bus.h"
+#include "drivers/sensor.h"
+
+extern float vGyroStdDevModulus;
 
 typedef struct gyro_s {
     uint32_t targetLooptime;
@@ -61,6 +67,16 @@ typedef enum {
     FILTER_LOWPASS = 0,
     FILTER_LOWPASS2
 } filterSlots;
+#if defined(USE_GYRO_IMUF9001)
+typedef enum {
+    IMUF_RATE_32K = 0,
+    IMUF_RATE_16K = 1,
+    IMUF_RATE_8K = 2,
+    IMUF_RATE_4K = 3,
+    IMUF_RATE_2K = 4,
+    IMUF_RATE_1K = 5
+} imufRate_e;
+#endif
 
 typedef struct gyroConfig_s {
     uint8_t  gyro_align;                       // gyro alignment
@@ -95,6 +111,22 @@ typedef struct gyroConfig_s {
     uint8_t dyn_filter_width_percent;
     uint8_t dyn_fft_location; // before or after static filters
     uint8_t dyn_filter_range; // ignore any FFT bin below this threshold
+    uint8_t dyn_notch_quality; // bandpass quality factor, 100 for steep sided bandpass
+    uint8_t dyn_notch_width_percent;
+#if defined(USE_GYRO_IMUF9001)
+    uint16_t imuf_mode;
+    uint16_t imuf_rate;
+    uint16_t imuf_pitch_q;
+    uint16_t imuf_roll_q;
+    uint16_t imuf_yaw_q;
+    uint16_t imuf_w;
+    uint16_t imuf_pitch_lpf_cutoff_hz;
+    uint16_t imuf_roll_lpf_cutoff_hz;
+    uint16_t imuf_yaw_lpf_cutoff_hz;
+#else
+    uint16_t gyro_filter_q;
+    uint16_t gyro_filter_r;
+#endif
 } gyroConfig_t;
 
 PG_DECLARE(gyroConfig_t, gyroConfig);
@@ -102,8 +134,12 @@ PG_DECLARE(gyroConfig_t, gyroConfig);
 bool gyroInit(void);
 
 void gyroInitFilters(void);
+#ifdef USE_DMA_SPI_DEVICE
+void gyroDmaSpiFinishRead(void);
+void gyroDmaSpiStartRead(void);
+#endif
 void gyroUpdate(timeUs_t currentTimeUs);
-bool gyroGetAccumulationAverage(float *accumulation);
+bool gyroGetAverage(quaternion *vAverage);
 const busDevice_t *gyroSensorBus(void);
 struct mpuDetectionResult_s;
 const struct mpuDetectionResult_s *gyroMpuDetectionResult(void);

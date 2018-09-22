@@ -133,7 +133,6 @@
 #define USE_SERIALRX_SBUS       // Frsky and Futaba receivers
 #define USE_SERIALRX_SPEKTRUM   // SRXL, DSM2 and DSMX protocol
 #define USE_SERIALRX_SUMD       // Graupner Hott protocol
-#define USE_SERIALRX_SUMH       // Graupner legacy protocol
 #define USE_SERIALRX_XBUS       // JR
 
 
@@ -148,8 +147,7 @@
 #define USE_ACRO_TRAINER
 #define USE_BLACKBOX
 #define USE_RESOURCE_MGMT
-#define USE_RUNAWAY_TAKEOFF     // Runaway Takeoff Prevention (anti-taz)
-#define USE_SERVOS
+#define USE_RUNAWAY_TAKEOFF     // Runaway Takeoff Prevention (anti-taz) - Marked for removal
 #define USE_TELEMETRY
 #define USE_TELEMETRY_FRSKY_HUB
 #define USE_TELEMETRY_HOTT
@@ -158,6 +156,7 @@
 #endif
 
 #if (FLASH_SIZE > 128)
+#define USE_SERIALRX_SUMH       // Graupner legacy protocol
 #define USE_CAMERA_CONTROL
 #define USE_CMS
 #define USE_EXTENDED_CMS_MENUS
@@ -167,6 +166,9 @@
 #define USE_HUFFMAN
 #define USE_MSP_DISPLAYPORT
 #define USE_MSP_OVER_TELEMETRY
+#define MSP_OVER_CLI
+#define USE_OSD
+#define USE_OSD_OVER_MSP_DISPLAYPORT
 #define USE_PINIO
 #define USE_PINIOBOX
 #define USE_RCDEVICE
@@ -203,6 +205,8 @@
 #endif
 
 #if (FLASH_SIZE > 256)
+#define USE_SERVOS
+#define USE_LED_STRIP
 #define USE_DASHBOARD
 #define USE_GPS
 #define USE_GPS_NMEA
@@ -225,4 +229,5 @@
 #define USE_HOTT_TEXTMODE
 #define USE_LED_STRIP
 #define USE_VARIO
+#define USE_TPA_CURVES
 #endif

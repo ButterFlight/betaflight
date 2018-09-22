@@ -35,6 +35,15 @@
 #include "fc/rc.h"
 #include "fc/rc_controls.h"
 
+
+
+#if defined(USE_TPA_CURVES)
+// defaults for rf1 things
+static uint8_t kpAttenuationCurveDefault[ATTENUATION_CURVE_SIZE] = {100, 100, 95, 95, 95, 95, 95, 100, 100};
+static uint8_t kiAttenuationCurveDefault[ATTENUATION_CURVE_SIZE] = {100, 100, 100, 100, 100, 100, 100, 100, 100};
+static uint8_t kdAttenuationCurveDefault[ATTENUATION_CURVE_SIZE] = {100, 95, 90, 85, 85, 85, 85, 100, 100};
+#endif
+
 controlRateConfig_t *currentControlRateProfile;
 
 PG_REGISTER_ARRAY_WITH_RESET_FN(controlRateConfig_t, CONTROL_RATE_PROFILE_COUNT, controlRateProfiles, PG_CONTROL_RATE_PROFILES, 1);
@@ -63,6 +72,12 @@ void pgResetFn_controlRateProfiles(controlRateConfig_t *controlRateConfig)
             .rate_limit[FD_PITCH] = CONTROL_RATE_CONFIG_RATE_LIMIT_MAX,
             .rate_limit[FD_YAW] = CONTROL_RATE_CONFIG_RATE_LIMIT_MAX
         );
+        #ifdef USE_TPA_CURVES
+        controlRateConfig[i].tpaCurveType = 1;
+        memcpy(controlRateConfig[i].tpaKpCurve, kpAttenuationCurveDefault, sizeof(kpAttenuationCurveDefault));
+        memcpy(controlRateConfig[i].tpaKiCurve, kiAttenuationCurveDefault, sizeof(kiAttenuationCurveDefault));
+        memcpy(controlRateConfig[i].tpaKdCurve, kdAttenuationCurveDefault, sizeof(kdAttenuationCurveDefault));
+        #endif
     }
 }
 
