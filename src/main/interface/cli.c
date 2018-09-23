@@ -3658,7 +3658,7 @@ static const char * valueTypeMask[] = {
 };
 
 static const char * valueModeMask[] = {
-    "DIRECT", "LOOKUP", "ARRAY"
+    "DIRECT", "LOOKUP", "ARRAY", "BITMASK"
 };
 
 void cliPrintValueJson(int32_t i){
@@ -3674,12 +3674,12 @@ void cliPrintValueJson(int32_t i){
     const int valueOffset = getValueOffset(var);
     printValuePointer(var, (uint8_t*)pg->address + valueOffset, false);
     cliPrint("\"");
-    if ((var->type & VALUE_MODE_MASK) == MODE_LOOKUP) 
+    if ((var->type & VALUE_MODE_MASK) == MODE_LOOKUP)
     {
         const lookupTableEntry_t *tableEntry = &lookupTables[var->config.lookup.tableIndex];
         cliPrint(",\"values\":[");
         for (int32_t i = 0; i < tableEntry->valueCount ; i++) {
-            if (i > 0) 
+            if (i > 0)
             {
                 cliPrintLine(",");
             }
@@ -3700,10 +3700,10 @@ static void printFeatureJson(const featureConfig_t *configCopy)
 {
     const uint32_t mask = configCopy->enabledFeatures;
     const uint32_t defaultMask = featureConfig()->enabledFeatures;
-    cliPrintf(",\"features\":{\"scope\":\"GLOBAL\",\"type\":\"UINT8\",\"mode\":\"ARRAY\",\"current\":\"%d\",\"values\":[", mask); 
+    cliPrintf(",\"features\":{\"scope\":\"GLOBAL\",\"type\":\"UINT8\",\"mode\":\"ARRAY\",\"current\":\"%d\",\"values\":[", mask);
     for (uint32_t i = 0; featureNames[i]; i++) { // disabled features first
         if (strcmp(featureNames[i], emptyString) != 0) { //Skip unused
-            if (i > 0) 
+            if (i > 0)
             {
                 cliPrint(",");
             }
@@ -3718,9 +3718,9 @@ static void printFeatureJson(const featureConfig_t *configCopy)
 }
 static void printSerialJson(const serialConfig_t *serialConfig)
 {
-    cliPrint(",\"ports\":{\"scope\":\"GLOBAL\",\"type\":\"UINT16\",\"mode\":\"ARRAY\",\"values\":["); 
+    cliPrint(",\"ports\":{\"scope\":\"GLOBAL\",\"type\":\"UINT16\",\"mode\":\"ARRAY\",\"values\":[");
     for (uint32_t i = 0; i < SERIAL_PORT_COUNT && serialIsPortAvailable(serialConfig->portConfigs[i].identifier); i++) {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint(",");
         }
@@ -3737,9 +3737,9 @@ static void printSerialJson(const serialConfig_t *serialConfig)
 
 static void printAuxJson(const modeActivationCondition_t *modeActivationConditions)
 {
-    cliPrint(",\"modes\":{\"scope\":\"GLOBAL\",\"type\":\"UINT16\",\"mode\":\"ARRAY\",\"values\":["); 
+    cliPrint(",\"modes\":{\"scope\":\"GLOBAL\",\"type\":\"UINT16\",\"mode\":\"ARRAY\",\"values\":[");
     for (uint32_t i = 0; i < MAX_MODE_ACTIVATION_CONDITION_COUNT; i++) {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint(",");
         }
@@ -3759,11 +3759,33 @@ static void printAuxJson(const modeActivationCondition_t *modeActivationConditio
     cliPrintf("]}");
 }
 
+static void printResourceJson() {
+    cliPrint(",\"resources\":{\"scope\":\"GLOBAL\",\"type\":\"string\",\"mode\":\"ARRAY\",\"values\":[");
+    for (int i = 0; i < DEFIO_IO_USED_COUNT; i++) {
+        if (i > 0)
+        {
+            cliPrint(",");
+        }
+        const char* owner;
+        owner = ownerNames[ioRecs[i].owner];
+
+        cliPrintf("\"%c%02d|%s|", IO_GPIOPortIdx(ioRecs + i) + 'A', IO_GPIOPinIdx(ioRecs + i), owner);
+        if (ioRecs[i].index > 0) {
+            cliPrintf("%d", ioRecs[i].index);
+        } else {
+            cliPrintf("0");
+        }
+        cliPrintf("\"");
+        //cliPrintLinefeed();
+    }
+    cliPrintf("]}");
+}
+
 #ifdef USE_TPA_CURVES
 static void printTPACurveJson() {
     cliPrint(",\"tpa_curves\":{\"kp\":[");
     for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint(",");
         }
@@ -3771,7 +3793,7 @@ static void printTPACurveJson() {
     }
     cliPrint("],\"kd\":[");
     for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint(",");
         }
@@ -3779,7 +3801,7 @@ static void printTPACurveJson() {
     }
     cliPrint("],\"ki\":[");
     for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint(",");
         }
@@ -3790,7 +3812,7 @@ static void printTPACurveJson() {
 #endif
 
 
-#define PROFILE_JSON_STRING ",\"%s_profile\":{\"scope\":\"GLOBAL\",\"type\":\"UINT8\",\"mode\":\"LOOKUP\",\"current\":\"%d\",\"values\":[{" 
+#define PROFILE_JSON_STRING ",\"%s_profile\":{\"scope\":\"GLOBAL\",\"type\":\"UINT8\",\"mode\":\"LOOKUP\",\"current\":\"%d\",\"values\":[{"
 
 static void dumpProfileValueJson(uint16_t valueSection)
 {
@@ -3798,7 +3820,7 @@ static void dumpProfileValueJson(uint16_t valueSection)
     for (uint32_t i = 0; i < valueTableEntryCount; i++) {
         const clivalue_t *value = &valueTable[i];
         if ((value->type & VALUE_SECTION_MASK) == valueSection) {
-            if (foundFirst) 
+            if (foundFirst)
             {
                 cliPrint(",");
             }
@@ -3814,7 +3836,7 @@ static void cliPidProfilesJson()
     const uint8_t saved = systemConfig_Copy.pidProfileIndex;
     for (uint32_t i = 0; i < MAX_PROFILE_COUNT; i++) {
         changePidProfile(i);
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint("},{");
         }
@@ -3830,7 +3852,7 @@ static void cliRateProfilesJson()
     const uint8_t saved = systemConfig_Copy.activeRateProfile;
     for (uint32_t i = 0; i < CONTROL_RATE_PROFILE_COUNT; i++) {
         changeControlRateProfile(i);
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrint("},{");
         }
@@ -3842,12 +3864,12 @@ static void cliRateProfilesJson()
 
 void cliConfig(char *cmdline)
 {
-    
+
     UNUSED(cmdline);
     cliPrintLine("{");
-    for (uint32_t i = 0; i < valueTableEntryCount; i++) 
+    for (uint32_t i = 0; i < valueTableEntryCount; i++)
     {
-        if (i > 0) 
+        if (i > 0)
         {
             cliPrintLine(",");
         }
@@ -3858,6 +3880,7 @@ void cliConfig(char *cmdline)
     printFeatureJson(&featureConfig_Copy);
     printSerialJson(serialConfig());
     printAuxJson(modeActivationConditions(0));
+    printResourceJson();
 #ifdef USE_TPA_CURVES
     printTPACurveJson();
 #endif
