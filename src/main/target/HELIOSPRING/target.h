@@ -218,3 +218,4 @@
 #define GYRO_1_EXTI_PIN         PB0
 #define GYRO_1_ALIGN            CW0_DEG
 #define ACC_1_ALIGN             CW0_DEG
+#define TARGET_MANUFACTURER_IDENTIFIER "HESP"
