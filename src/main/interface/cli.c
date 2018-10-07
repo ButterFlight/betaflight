@@ -3837,7 +3837,7 @@ static void printTPACurveJson() {
         {
             cliPrint(",");
         }
-        cliPrintf("\"%d\"", currentControlRateProfile->tpaKiCurve[i]);
+        cliPrintf("\"%d\"", currentControlRateProfile->tpaKdCurve[i]);
     }
     cliPrint("],\"ki\":[");
     for (int i = 0; i < ATTENUATION_CURVE_SIZE; i++) {
@@ -3845,7 +3845,7 @@ static void printTPACurveJson() {
         {
             cliPrint(",");
         }
-        cliPrintf("\"%d\"", currentControlRateProfile->tpaKdCurve[i]);
+        cliPrintf("\"%d\"", currentControlRateProfile->tpaKiCurve[i]);
     }
     cliPrint("]}");
 }
