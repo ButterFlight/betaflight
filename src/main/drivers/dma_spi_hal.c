@@ -33,17 +33,17 @@ FAST_CODE static inline void dmaSpiCsHi(void)
 }
 
 
-FAST_CODE void dmaSpicleanupspi(void)
-{
-}
+// FAST_CODE void dmaSpicleanupspi(void)
+// {
+// }
 
-FAST_CODE void DMA_SPI_TX_DMA_HANDLER(void)
+FAST_CODE_NOINLINE void DMA_SPI_TX_DMA_HANDLER(void)
 {
 	HAL_NVIC_ClearPendingIRQ(DMA_SPI_TX_DMA_IRQn);
 	HAL_DMA_IRQHandler(&SpiTxDmaHandle);
 }
 
-FAST_CODE void DMA_SPI_RX_DMA_HANDLER(void)
+FAST_CODE_NOINLINE void DMA_SPI_RX_DMA_HANDLER(void)
 {
 	HAL_NVIC_ClearPendingIRQ(DMA_SPI_RX_DMA_IRQn);
 	HAL_DMA_IRQHandler(&SpiRxDmaHandle);
@@ -82,7 +82,7 @@ FAST_CODE void DMA_SPI_RX_DMA_HANDLER(void)
     }
 
     dmaSpiCsHi();
-    dmaSpicleanupspi();
+    // dmaSpicleanupspi();
     
     dmaSpiReadStatus = DMA_SPI_READ_DONE;    
 }
@@ -198,7 +198,7 @@ void dmaSpiInit(void)
 
 }
 
-FAST_CODE void dmaSpiTransmitReceive(uint8_t* txBuffer, uint8_t* rxBuffer, uint32_t size, uint32_t blockingRead)
+FAST_CODE_NOINLINE void dmaSpiTransmitReceive(uint8_t* txBuffer, uint8_t* rxBuffer, uint32_t size, uint32_t blockingRead)
 {
 
     if (HAL_SPI_GetState(&dmaSpiHandle) == HAL_SPI_STATE_READY)

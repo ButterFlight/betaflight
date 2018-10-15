@@ -145,7 +145,7 @@ static void pwmWriteUnused(uint8_t index, float value)
     UNUSED(value);
 }
 
-static void pwmWriteStandard(uint8_t index, float value)
+FAST_CODE static void pwmWriteStandard(uint8_t index, float value)
 {
     /* TODO: move value to be a number between 0-1 (i.e. percent throttle from mixer) */
     *motors[index].channel.ccr = lrintf((value * motors[index].pulseScale) + motors[index].pulseOffset);
@@ -167,7 +167,7 @@ static FAST_CODE uint8_t loadDmaBufferDshot(uint32_t *dmaBuffer, int stride, uin
     return DSHOT_DMA_BUFFER_SIZE;
 }
 
-static uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t packet)
+FAST_CODE static uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t packet)
 {
     for (int i = 0; i < 4; i++) {
         dmaBuffer[i * stride] = PROSHOT_BASE_SYMBOL + ((packet & 0xF000) >> 12) * PROSHOT_BIT_WIDTH;  // Most significant nibble first
@@ -178,7 +178,7 @@ static uint8_t loadDmaBufferProshot(uint32_t *dmaBuffer, int stride, uint16_t pa
 }
 #endif
 
-void pwmWriteMotor(uint8_t index, float value)
+FAST_CODE void pwmWriteMotor(uint8_t index, float value)
 {
     pwmWrite(index, value);
 }
