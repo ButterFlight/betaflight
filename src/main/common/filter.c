@@ -222,21 +222,6 @@ void fastKalmanInit(fastKalman_t *filter, float q, float r)
     filter->k     = 0.0f;          // kalman gain
 }
 
-FAST_CODE float laggedMovingAverageUpdate(laggedMovingAverage_t *filter, float input)
-{
-    filter->movingSum -= filter->buf[filter->movingWindowIndex];
-    filter->buf[filter->movingWindowIndex] = input;
-    filter->movingSum += input;
-
-    if (++filter->movingWindowIndex == filter->windowSize) {
-        filter->movingWindowIndex = 0;
-        filter->primed = true;
-    }
-
-    const uint16_t denom = filter->primed ? filter->windowSize : filter->movingWindowIndex;
-    return filter->movingSum  / denom;
-}
-
 FAST_CODE float fastKalmanUpdate(fastKalman_t *filter, float input)
 {
     // project the state ahead using acceleration
