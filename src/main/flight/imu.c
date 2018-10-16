@@ -147,44 +147,44 @@ void imuResetAccelerationSum(void)
     accTimeSum = 0;
 }
 
-#if defined(USE_ALT_HOLD)
+// #if defined(USE_ALT_HOLD)
 // rotate acc into Earth frame and calculate acceleration in it
-static void imuCalculateAcceleration(timeDelta_t deltaT)
-{
-    static float accZoffset = 0;
-    static float accz_smooth = 0;
+// static void imuCalculateAcceleration(timeDelta_t deltaT)
+// {
+//     static float accZoffset = 0;
+//     static float accz_smooth = 0;
 
-    // deltaT is measured in us ticks
-    const float dT = (float)deltaT * 1e-6f;
+//     // deltaT is measured in us ticks
+//     const float dT = (float)deltaT * 1e-6f;
 
-    quaternion accel_ned;
-    accel_ned.x = acc.accADC[X];
-    accel_ned.y = acc.accADC[Y];
-    accel_ned.z = acc.accADC[Z];
-    quaternionTransformVectorBodyToEarth(&accel_ned, &qAttitude);
+//     quaternion accel_ned;
+//     accel_ned.x = acc.accADC[X];
+//     accel_ned.y = acc.accADC[Y];
+//     accel_ned.z = acc.accADC[Z];
+//     quaternionTransformVectorBodyToEarth(&accel_ned, &qAttitude);
 
-    if (imuRuntimeConfig.acc_unarmedcal == 1) {
-        if (!ARMING_FLAG(ARMED)) {
-            accZoffset -= accZoffset / 64;
-            accZoffset += accel_ned.z;
-        }
-        accel_ned.z -= accZoffset / 64;  // compensate for gravitation on z-axis
-    } else {
-        accel_ned.z -= acc.dev.acc_1G;
-    }
+//     if (imuRuntimeConfig.acc_unarmedcal == 1) {
+//         if (!ARMING_FLAG(ARMED)) {
+//             accZoffset -= accZoffset / 64;
+//             accZoffset += accel_ned.z;
+//         }
+//         accel_ned.z -= accZoffset / 64;  // compensate for gravitation on z-axis
+//     } else {
+//         accel_ned.z -= acc.dev.acc_1G;
+//     }
 
-    accz_smooth = accz_smooth + (dT / (fc_acc + dT)) * (accel_ned.z - accz_smooth); // low pass filter
+//     accz_smooth = accz_smooth + (dT / (fc_acc + dT)) * (accel_ned.z - accz_smooth); // low pass filter
 
-    // apply Deadband to reduce integration drift and vibration influence
-    accSum[X] += applyDeadband(lrintf(accel_ned.x), imuRuntimeConfig.accDeadband.xy);
-    accSum[Y] += applyDeadband(lrintf(accel_ned.y), imuRuntimeConfig.accDeadband.xy);
-    accSum[Z] += applyDeadband(lrintf(accz_smooth), imuRuntimeConfig.accDeadband.z);
+//     // apply Deadband to reduce integration drift and vibration influence
+//     accSum[X] += applyDeadband(lrintf(accel_ned.x), imuRuntimeConfig.accDeadband.xy);
+//     accSum[Y] += applyDeadband(lrintf(accel_ned.y), imuRuntimeConfig.accDeadband.xy);
+//     accSum[Z] += applyDeadband(lrintf(accz_smooth), imuRuntimeConfig.accDeadband.z);
 
-    // sum up Values for later integration to get velocity and distance
-    accTimeSum += deltaT;
-    accSumCount++;
-}
-#endif // USE_ALT_HOLD
+//     // sum up Values for later integration to get velocity and distance
+//     accTimeSum += deltaT;
+//     accSumCount++;
+// }
+// #endif // USE_ALT_HOLD
 
 static float imuUseFastGains(void) {
    if (!ARMING_FLAG(ARMED)) {
@@ -382,9 +382,9 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
     imuUpdateEulerAngles();
 #endif
 
-#if defined(USE_ALT_HOLD)
-    imuCalculateAcceleration(deltaT); // rotate acc vector into earth frame
-#endif
+// #if defined(USE_ALT_HOLD)
+//     imuCalculateAcceleration(deltaT); // rotate acc vector into earth frame
+// #endif
 }
 
 void imuUpdateAttitude(timeUs_t currentTimeUs)

@@ -201,4 +201,15 @@
 #define DEFAULT_PIDS_PITCH  {45, 50, 20, 0}
 #define DEFAULT_PIDS_YAW    {45, 50, 20, 0}
 
-// #define USE_QUAD_MIXER_ONLY
+
+#define GYRO_1_CS_PIN           PB1
+#define GYRO_1_RST_PIN          PA4 
+#define GYRO_1_SPI_INSTANCE     SPI1
+#define USE_SPI_GYRO
+#define USE_EXTI
+#define USE_GYRO_EXTI
+#define GYRO_1_EXTI_PIN         PB0
+#define GYRO_1_ALIGN            CW0_DEG
+#define ACC_1_ALIGN             CW0_DEG
+
+#define TARGET_MANUFACTURER_IDENTIFIER "SF10"
