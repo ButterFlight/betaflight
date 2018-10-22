@@ -170,7 +170,6 @@ rc_controls_unittest_SRC := \
 		$(USER_DIR)/pg/pg.c \
 		$(USER_DIR)/common/bitarray.c \
 		$(USER_DIR)/common/maths.c \
-		$(USER_DIR)/fc/rc_adjustments.c \
 		$(USER_DIR)/fc/rc_modes.c \
 
 

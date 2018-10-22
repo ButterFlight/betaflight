@@ -62,8 +62,8 @@
 
 #include "fc/config.h"
 #include "fc/fc_core.h"
-#include "fc/rc_adjustments.h"
 #include "fc/rc_controls.h"
+#include "fc/rc_modes.h"
 #include "fc/fc_rc.h"
 #include "fc/runtime_config.h"
 
@@ -956,13 +956,6 @@ static bool osdDrawSingleElement(uint8_t item)
         break;
 #endif
 
-#ifdef USE_OSD_ADJUSTMENTS
-    case OSD_ADJUSTMENT_RANGE:
-        if (getAdjustmentsRangeName()) {
-            tfp_sprintf(buff, "%s: %3d", getAdjustmentsRangeName(), getAdjustmentsRangeValue());
-        }
-        break;
-#endif
 
 #ifdef USE_ADC_INTERNAL
     case OSD_CORE_TEMPERATURE:

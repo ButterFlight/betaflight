@@ -36,7 +36,7 @@
 #include "fc/controlrate_profile.h"
 #include "fc/fc_core.h"
 #include "fc/fc_rc.h"
-#include "fc/rc_adjustments.h"
+#include "fc/rc_modes.h"
 #include "fc/rc_controls.h"
 
 #include "flight/failsafe.h"
@@ -132,11 +132,8 @@ static void activateConfig(void)
 
     initRcProcessing();
 
-    resetAdjustmentStates();
-
     pidInit(currentPidProfile);
     useRcControlsConfig(currentPidProfile);
-    useAdjustmentConfig(currentPidProfile);
 
     failsafeReset();
     setAccelerationTrims(&accelerometerConfigMutable()->accZero);

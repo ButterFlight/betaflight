@@ -72,7 +72,6 @@ COMMON_SRC = \
             drivers/serial_softserial.c \
             fc/fc_core.c \
             fc/fc_rc.c \
-            fc/rc_adjustments.c \
             fc/rc_controls.c \
             fc/rc_modes.c \
             flight/position.c \

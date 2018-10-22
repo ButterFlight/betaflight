@@ -57,7 +57,6 @@
 #include "fc/controlrate_profile.h"
 #include "fc/fc_core.h"
 #include "fc/fc_rc.h"
-#include "fc/rc_adjustments.h"
 #include "fc/rc_controls.h"
 #include "fc/runtime_config.h"
 
@@ -727,10 +726,6 @@ bool processRx(timeUs_t currentTimeUs)
     }
 #endif
 
-    if (!cliMode) {
-        updateAdjustmentStates();
-        processRcAdjustments(currentControlRateProfile);
-    }
 
     bool canUseHorizonMode = true;
 
