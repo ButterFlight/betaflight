@@ -138,7 +138,7 @@
 #endif
 
 // *************** FEATURES ************************
-#define DEFAULT_FEATURES        (FEATURE_OSD)
+#define DEFAULT_FEATURES (FEATURE_ANTI_GRAVITY | FEATURE_OSD)
 #define DEFAULT_RX_FEATURE      FEATURE_RX_SERIAL
 #define SERIALRX_PROVIDER       SERIALRX_SBUS
 #define SERIALRX_UART           SERIAL_PORT_USART3
