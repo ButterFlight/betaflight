@@ -4977,6 +4977,9 @@ typedef struct {
 #ifdef USE_GYRO_IMUF9001
 static void cliReportImufErrors(char *cmdline);
 #endif
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline);
+#endif
 
 static void cliHelp(char *cmdline);
 
@@ -5051,6 +5054,9 @@ const clicmd_t cmdTable[] = {
 #endif
 #ifdef USE_TPA_CURVES
     CLI_COMMAND_DEF("tpacurve", "set rf1 tpa", "[kp, ki, kd]", cliTPACurve),
+#endif
+#ifdef MSD_ADDRESS
+    CLI_COMMAND_DEF("msd", "boot into USB drive mode to download log files", NULL, cliMsd),
 #endif
 
     CLI_COMMAND_DEF("help", NULL, NULL, cliHelp),
@@ -5127,6 +5133,27 @@ static void cliReportImufErrors(char *cmdline)
     UNUSED(cmdline);
     cliPrintf("Current Comm Errors: %lu", crcErrorCount);
     cliPrintLinefeed();
+}
+#endif
+
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline)
+{
+    UNUSED(cmdline);
+
+    if( (*((__IO uint32_t *)MSD_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("Loading as USB drive!");
+        cliPrintLinefeed();
+        (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) = 0xF431FA11;   // flag that will be readable after reboot
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
 }
 #endif
 

@@ -19,6 +19,7 @@
 
  #define TARGET_BOARD_IDENTIFIER "SX10"
  #define USBD_PRODUCT_STRING     "STRIX Binary F10 by Helio"
+ #define MSD_ADDRESS  0x08060000
 
  #define LED0_PIN                PB7
 
