@@ -204,6 +204,25 @@ void checkForBootLoaderRequest(void)
     HAL_PWR_EnableBkUpAccess();
 
     bt = (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) ;
+
+    #ifdef MSD_ADDRESS
+        if ( bt == 0xF431FA11 ) {
+            (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) =  0xCAFEFEED; // Reset our trigger
+            typedef void (*pFunction)(void);
+            pFunction JumpToApplication;
+            uint32_t jumpAddress;
+
+            __disable_irq(); // disable interrupts for jump
+
+            jumpAddress = *(__IO uint32_t*)(MSD_ADDRESS + 4);
+            JumpToApplication = (pFunction)jumpAddress;
+
+            // Initialize user application's Stack Pointer
+            __set_MSP(*(__IO uint32_t*)MSD_ADDRESS);
+            JumpToApplication();
+            while (1);
+        }
+    #endif
     if ( bt == 0xDEADBEEF ) {
         (*(__IO uint32_t *) (BKPSRAM_BASE + 4)) =  0xCAFEFEED; // Reset our trigger
         // Backup SRAM is write-back by default, ensure value actually reaches memory
